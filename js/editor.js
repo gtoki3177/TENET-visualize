@@ -206,6 +206,7 @@ export class Editor {
   }
 
   pick(e) {
+    if (e.button !== 0) return;   // only LEFT selects; middle/right are camera orbit/pan
     if (this.tc.axis) return;
     const r = this.renderer.domElement.getBoundingClientRect();
     this.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);

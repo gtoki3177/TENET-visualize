@@ -214,6 +214,23 @@ function trackToT(clientX) {
   const r = elTrack.getBoundingClientRect();
   return ((clientX - r.left) / r.width) * (T_MAX - T_MIN) + T_MIN;
 }
+// Times to snap to while Shift-dragging: the selected actor's keyframes (else event beats).
+function snapTimes() {
+  if (editActorName) {
+    const pos = (entities.edit.tracks[editActorName] || []).map(f => f.t);
+    const vis = entities.edit.visMode === 'keys' ? (entities.edit.visKeyList(editActorName) || []).map(k => k.t) : [];
+    const all = pos.concat(vis);
+    if (all.length) return all;
+  }
+  return EVENTS.map(e => e.t);
+}
+function snapT(tt) {
+  const times = snapTimes(); if (!times.length) return tt;
+  let best = times[0];
+  for (const x of times) if (Math.abs(x - tt) < Math.abs(best - tt)) best = x;
+  return best;
+}
+const scrubT = (e) => { const tt = trackToT(e.clientX); return e.shiftKey ? snapT(tt) : tt; };
 function syncSubjFromGlobal() {
   if (!subjKey) return;
   if (isNeil(subjKey)) {
@@ -230,12 +247,12 @@ function syncSubjFromGlobal() {
     paintSubj();
   }
 }
-function trackMove(e) { setT(trackToT(e.clientX)); syncSubjFromGlobal(); }
+function trackMove(e) { setT(scrubT(e)); syncSubjFromGlobal(); }
 function trackUp() { window.removeEventListener('pointermove', trackMove); window.removeEventListener('pointerup', trackUp); }
 elTrackWrap.addEventListener('pointerdown', (e) => {
-  // (drag works even when the press starts on a keyframe/event marker)
+  // (drag works even when the press starts on a keyframe/event marker; Shift snaps to keyframes)
   e.preventDefault();
-  pause(); setT(trackToT(e.clientX)); syncSubjFromGlobal();
+  pause(); setT(scrubT(e)); syncSubjFromGlobal();
   window.addEventListener('pointermove', trackMove);
   window.addEventListener('pointerup', trackUp);
 });
