@@ -242,16 +242,18 @@ RINGS.mid[1] = [RINGS.mid[1][0], _topZ];   // mid TR → onto outer top edge
   const atOf = x => (x - xoL) / span;
   const segCw = (xoL + xmL) / 2, segCe = (xmR + xoR) / 2;  // centres of the two side gaps
   const segW = Math.max(10, (xoR - xmR) - 3);
-  // [0]=west rolling door, [1]=east rolling door, [2]=CENTRE junction door (mid↔outer
-  // edge-1 connection; just an opening, no shutter — Neil 2 exits here).
-  HEX.outerDoors = { 0: [ { at: atOf(segCw), w: segW }, { at: atOf(segCe), w: segW }, { at: 0.5, w: 9 } ] };
+  // [0]=west rolling door, [1]=east rolling door, [2]=junction door at the RIGHT merge
+  // point (mid↔outer edge-1; just an opening, no shutter — red Neil 2 exits here).
+  const connAt = atOf(xmR - 2);   // just inboard of the right (east) merge corner
+  HEX.outerDoors = { 0: [ { at: atOf(segCw), w: segW }, { at: atOf(segCe), w: segW }, { at: connAt, w: 9 } ] };
+  HEX._connAt = connAt;
 }
 
 // World positions of every doorway.
 export const DOORS = {
   rollW:   pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][0].at),  // outer NORTH rolling door, west
   rollE:   pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][1].at),  // outer NORTH rolling door, east
-  connTop: pointOnEdge(RINGS.outer, 0, 0.5),                      // top-centre junction door (Neil 2 exits)
+  connTop: pointOnEdge(RINGS.outer, 0, HEX._connAt),             // right junction door (red Neil 2 exits)
   midR:    pointOnEdge(RINGS.mid,   1, HEX.midDoors[1][0].at),    // middle RIGHT (east) door — main entry
   midL:    pointOnEdge(RINGS.mid,   5, HEX.midDoors[5][0].at),    // middle LEFT (west) door
   innE:    pointOnEdge(RINGS.inner, 3, HEX.innerDoors[3][0].at),  // inner bottom, east (red)

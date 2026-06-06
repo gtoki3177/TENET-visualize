@@ -203,6 +203,24 @@ export function buildLandmarks(root) {
   const rollWest = rollingDoor(0, HEX.outerDoors[0][0], 'rolling_door_west');  // NORTH, west side
   const rollEast = rollingDoor(0, HEX.outerDoors[0][1], 'rolling_door_east');  // NORTH, east side
 
+  // Sliding black door panel (indicative) in every non-rolling opening. Editable, so it
+  // can be "slid" with the gizmo.
+  function slideDoor(ring, edge, door, group, id) {
+    const { ang } = edgeInfo(ring, edge);
+    const p = pointOnEdge(ring, edge, door.at);
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(door.w * 0.92, HEX.wallH * 0.8, 0.7),
+      track(new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.55, metalness: 0.35 }), surfaceMats));
+    panel.position.set(p.x, HEX.wallH * 0.4, p.y);
+    panel.rotation.y = -ang; panel.castShadow = true;
+    tag(panel, id); group.add(panel);
+    return panel;
+  }
+  slideDoor(innerC, 3, HEX.innerDoors[3][0], innerGroup, 'door_inner_E');
+  slideDoor(innerC, 3, HEX.innerDoors[3][1], innerGroup, 'door_inner_W');
+  slideDoor(midC, 1, HEX.midDoors[1][0], midGroup, 'door_mid_R');
+  slideDoor(midC, 5, HEX.midDoors[5][0], midGroup, 'door_mid_L');
+  slideDoor(outerC, 0, HEX.outerDoors[0][2], outerGroup, 'door_conn');
+
   // ============================================================
   //  E. THE ROTAS TURNSTILE MACHINE (two cylinders + frame)
   // ============================================================
@@ -216,19 +234,24 @@ export function buildLandmarks(root) {
   function turnstileShell(x, faceEast, color, edgeColor) {
     const g = new THREE.Group();
     g.position.set(x, 0, cz);
-    const gap = faceEast ? 0 : Math.PI;   // outward = +x (east) / -x (west)
+    // CylinderGeometry vertex: x=r·sin(θ), z=r·cos(θ) → +x (east)=θ=π/2, −x (west)=θ=−π/2.
+    // Opening faces OUTWARD at rest: red→east, blue→west.
+    const gap = faceEast ? Math.PI / 2 : -Math.PI / 2;
     const mat = track(new THREE.MeshStandardMaterial({ color, roughness: 0.25, metalness: 0.2, side: THREE.DoubleSide }), surfaceMats);
     const shell = new THREE.Mesh(
       new THREE.CylinderGeometry(cylR, cylR, cylH, 40, 1, true, gap + openA / 2, Math.PI * 2 - openA), mat);
     shell.position.y = cylH / 2; shell.castShadow = true; shell.receiveShadow = true;
     g.add(shell);
+    // Solid top cap (cover the top).
+    const cap = new THREE.Mesh(new THREE.CircleGeometry(cylR, 40), mat);
+    cap.rotation.x = -Math.PI / 2; cap.position.y = cylH; g.add(cap);
     // jamb bars down the two edges of the opening, + top/bottom rims
     const trimMat = track(new THREE.MeshStandardMaterial({ color: edgeColor, roughness: 0.5, metalness: 0.4 }), surfaceMats);
     for (const s of [1, -1]) {
       const a = gap + s * openA / 2;
       const bar = new THREE.Mesh(new THREE.BoxGeometry(0.7, cylH, 1.2), trimMat);
-      bar.position.set(Math.cos(a) * cylR, cylH / 2, -Math.sin(a) * cylR);
-      bar.rotation.y = -a; g.add(bar);
+      bar.position.set(Math.sin(a) * cylR, cylH / 2, Math.cos(a) * cylR);  // match cylinder vertex convention
+      bar.rotation.y = Math.PI / 2 - a; g.add(bar);
     }
     for (const yy of [0.4, cylH]) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(cylR, 0.35, 8, 40), trimMat);
