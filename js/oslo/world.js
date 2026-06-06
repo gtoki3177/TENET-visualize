@@ -275,6 +275,21 @@ export function buildWorld(scene) {
   //  G. UPDATE(t)
   // ============================================================
   function update(t) {
+    // 747 flies in from afar and arrives at its crash spot at t=0, then explodes.
+    const fly = clamp01((t + 0.08) / 0.08);   // 0 at t=-0.08 → 1 at t=0
+    landmarks.planeGroup.position.set(
+      POS.plane.x + (1 - fly) * 30,
+      (1 - fly) * 80,
+      POS.plane.z - (1 - fly) * 300,
+    );
+    // Turnstile spin: after TP picks up the gun (~0.45), blue CCW / red CW, two full turns,
+    // back to rest (opening facing out) at ~0.62 — when the two TP-2 figures appear.
+    if (landmarks.turnstile) {
+      const ang = Math.PI * 4 * clamp01((t - 0.45) / 0.17);
+      landmarks.turnstile.red.rotation.y = -ang;
+      landmarks.turnstile.blue.rotation.y = ang;
+    }
+
     // Fire grows with time
     const fireAmt = clamp01(t / 0.15);
     const fArr = fire.geometry.attributes.position.array;

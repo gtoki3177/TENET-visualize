@@ -196,8 +196,10 @@ export const HEX = {
   // this is where the middle ring's 2/3 edges meet the outer ring's edge 1, and where the
   // 747 crashes in. Inner doors flank the partition on the south edge.
   innerDoors: { 3: [{ at: 0.30, w: 6 }, { at: 0.70, w: 6 }] },        // bottom (user 6), flank partition
-  midDoors:   { 2: [{ at: 0.50, w: 9 }], 4: [{ at: 0.50, w: 9 }] },   // SE/SW (user 5/4)
-  outerDoors: { 0: [{ at: 0.26, w: 14 }, { at: 0.74, w: 14 }] },      // NORTH (user 1) two sides: rolling doors → outside
+  // Middle doors on the NE/NW edges (code 1/5 = user 3/2), down near the SE/SW (4/5) ends.
+  // Code edge 1 (TR→RE): at→1 ≈ near RE; code edge 5 (WE→TL): at→0 ≈ near WE.
+  midDoors:   { 1: [{ at: 0.82, w: 9 }], 5: [{ at: 0.18, w: 9 }] },   // right (east) + left (west)
+  outerDoors: { 0: [{ at: 0.26, w: 14 }, { at: 0.74, w: 14 }] },      // overwritten by the MERGE block below
 
   // Turnstile cylinders + partition (shifted north with the inner room)
   cylZ:   -4 - NORTHSHIFT,
@@ -240,17 +242,20 @@ RINGS.mid[1] = [RINGS.mid[1][0], _topZ];   // mid TR → onto outer top edge
   const atOf = x => (x - xoL) / span;
   const segCw = (xoL + xmL) / 2, segCe = (xmR + xoR) / 2;  // centres of the two side gaps
   const segW = Math.max(10, (xoR - xmR) - 3);
-  HEX.outerDoors = { 0: [ { at: atOf(segCw), w: segW }, { at: atOf(segCe), w: segW } ] };
+  // [0]=west rolling door, [1]=east rolling door, [2]=CENTRE junction door (mid↔outer
+  // edge-1 connection; just an opening, no shutter — Neil 2 exits here).
+  HEX.outerDoors = { 0: [ { at: atOf(segCw), w: segW }, { at: atOf(segCe), w: segW }, { at: 0.5, w: 9 } ] };
 }
 
 // World positions of every doorway.
 export const DOORS = {
-  rollW:  pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][0].at),  // outer NORTH rolling door, west
-  rollE:  pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][1].at),  // outer NORTH rolling door, east
-  midSE:  pointOnEdge(RINGS.mid,   2, 0.5),                      // middle SE (red)
-  midSW:  pointOnEdge(RINGS.mid,   4, 0.5),                      // middle SW (blue)
-  innE:   pointOnEdge(RINGS.inner, 3, HEX.innerDoors[3][0].at),  // inner bottom, east (red)
-  innW:   pointOnEdge(RINGS.inner, 3, HEX.innerDoors[3][1].at),  // inner bottom, west (blue)
+  rollW:   pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][0].at),  // outer NORTH rolling door, west
+  rollE:   pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][1].at),  // outer NORTH rolling door, east
+  connTop: pointOnEdge(RINGS.outer, 0, 0.5),                      // top-centre junction door (Neil 2 exits)
+  midR:    pointOnEdge(RINGS.mid,   1, HEX.midDoors[1][0].at),    // middle RIGHT (east) door — main entry
+  midL:    pointOnEdge(RINGS.mid,   5, HEX.midDoors[5][0].at),    // middle LEFT (west) door
+  innE:    pointOnEdge(RINGS.inner, 3, HEX.innerDoors[3][0].at),  // inner bottom, east (red)
+  innW:    pointOnEdge(RINGS.inner, 3, HEX.innerDoors[3][1].at),  // inner bottom, west (blue)
   redCyl:  { x:  HEX.cylX, z: HEX.cylZ },
   blueCyl: { x: -HEX.cylX, z: HEX.cylZ },
 };

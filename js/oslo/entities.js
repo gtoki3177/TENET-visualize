@@ -41,36 +41,60 @@ export function buildEntities(scene, world) {
   const tp2i   = makeUnit(COL.inverted, 1.15); root.add(tp2i);
   const neil2i = makeUnit(COL.inverted, 1.0);  root.add(neil2i);
 
-  // ── PLACEHOLDER keyframes ──────────────────────────────────────────────
-  // The detailed choreography is the next step. For now each actor gets a valid,
-  // distinct track so it is visible, follow-able and editable. (Old keyframes removed.)
+  // ── Choreography (3-min clock; t 0→1 = 0:00→3:00) ──────────────────────
+  // Beats: Neil 2 (red+blue) out of the turnstile first → red Neil 2 inner→mid→top-junction
+  // door & waits; blue Neil 2 retreats middle-left → TP+Neil in via the middle RIGHT door →
+  // inner room, TP grabs the gun → turnstile spins → red+blue TP 2 appear → TP fights blue
+  // TP 2, Neil chases red TP 2 (flees west); blue Neil 2 leaves via the middle right door.
+  // The future selves (TP 2 / Neil 2) retreat to the far ambulance by 3:00.
   const D = DOORS;
-  const P = (pt, dz = 0) => up(pt.x, 0, pt.z + dz);
-  const out = (pt) => up(pt.x * 1.3, 0, pt.z - 14);
+  const P = (pt, dz = 0, dx = 0) => up(pt.x + dx, 0, pt.z + dz);
+  const out = (pt) => up(pt.x * 1.25, 0, pt.z - 14);
+  const AMB = up(-35, 0, D.rollE.z - 34);          // far NW ambulance (retreat point)
+  const CONN_OUT = up(D.connTop.x, 0, D.connTop.z - 12);
 
-  // Past pair: break in through the east rolling door, spiral to the red turnstile.
+  // Past TP — in via middle-right door, into the inner room, grabs the gun, fights blue TP 2.
   const tpFrames = [
-    { t: 0.05, p: out(D.rollE) }, { t: 0.20, p: P(D.rollE) }, { t: 0.40, p: P(D.midSE) },
-    { t: 0.55, p: P(D.innE) }, { t: 0.70, p: P(D.redCyl, 3) },
+    { t: 0.24, p: out(D.rollE) }, { t: 0.31, p: P(D.rollE) }, { t: 0.39, p: P(D.midR) },
+    { t: 0.47, p: P(D.innE) }, { t: 0.55, p: P(D.redCyl, 7) },   // in the room — grabs the gun
+    { t: 0.68, p: up(-1, 0, D.blueCyl.z + 6) },                  // turns to fight blue TP 2
+    { t: 0.82, p: up(-6, 0, D.blueCyl.z + 3) }, { t: 1.00, p: P(D.innW) },
   ];
+  // Past Neil — in with TP, then chases the fleeing red TP 2 out to the west.
   const neilFrames = [
-    { t: 0.08, p: out(D.rollE) }, { t: 0.24, p: P(D.rollE) }, { t: 0.44, p: P(D.midSE) },
-    { t: 0.60, p: P(D.innE) }, { t: 0.74, p: up(D.redCyl.x + 4, 0, D.redCyl.z + 4) },
+    { t: 0.26, p: out(D.rollE) }, { t: 0.33, p: P(D.rollE) }, { t: 0.41, p: P(D.midR) },
+    { t: 0.49, p: P(D.innE) }, { t: 0.58, p: P(D.redCyl, 9) },
+    { t: 0.74, p: P(D.innW) }, { t: 0.86, p: P(D.midL) }, { t: 1.00, p: out(D.rollW) },
   ];
-  // Future forward pair (red) — staged on the red side for now.
-  const tp2fFrames = [
-    { t: 0.00, p: P(D.redCyl) }, { t: 0.50, p: P(D.redCyl) }, { t: 1.00, p: P(D.innE) },
-  ];
+  // Future forward Neil (red) — out of the turnstile, inner→mid→top-junction door, waits, then ambulance.
   const neil2fFrames = [
-    { t: 0.00, p: up(D.redCyl.x + 5, 0, D.redCyl.z + 2) }, { t: 1.00, p: up(D.redCyl.x + 5, 0, D.redCyl.z + 2) },
+    { t: 0.06, p: P(D.redCyl) }, { t: 0.16, p: P(D.innE) }, { t: 0.26, p: P(D.midR) },
+    { t: 0.37, p: P(D.connTop, 4) }, { t: 0.45, p: CONN_OUT }, { t: 0.86, p: CONN_OUT },
+    { t: 1.00, p: AMB },
   ];
-  // Future inverted pair (blue) — staged on the blue side for now.
-  const tp2iFrames = [
-    { t: 0.00, p: P(D.blueCyl) }, { t: 0.50, p: P(D.blueCyl) }, { t: 1.00, p: P(D.innW) },
-  ];
+  // Future inverted Neil (blue) — appears at the turnstile, retreats middle-left, later out via the middle right door.
   const neil2iFrames = [
-    { t: 0.00, p: up(D.blueCyl.x - 5, 0, D.blueCyl.z + 2) }, { t: 1.00, p: up(D.blueCyl.x - 5, 0, D.blueCyl.z + 2) },
+    { t: 0.06, p: P(D.blueCyl) }, { t: 0.18, p: P(D.innW) }, { t: 0.30, p: P(D.midL) },
+    { t: 0.66, p: P(D.midL) }, { t: 0.78, p: P(D.midR) }, { t: 0.88, p: out(D.rollE) },
+    { t: 1.00, p: AMB },
   ];
+  // Future forward TP (red) — appears as the turnstile returns (~0.62), flees WEST, to the ambulance.
+  const tp2fFrames = [
+    { t: 0.62, p: P(D.redCyl) }, { t: 0.71, p: P(D.innW) }, { t: 0.81, p: P(D.midL) },
+    { t: 0.90, p: out(D.rollW) }, { t: 1.00, p: AMB },
+  ];
+  // Future inverted TP (blue) — appears at ~0.62, grapples past-TP, then retreats to the ambulance.
+  const tp2iFrames = [
+    { t: 0.62, p: P(D.blueCyl) }, { t: 0.72, p: up(-2, 0, D.blueCyl.z + 6) },
+    { t: 0.84, p: up(-7, 0, D.blueCyl.z + 2) }, { t: 0.92, p: P(D.midL) }, { t: 1.00, p: AMB },
+  ];
+
+  // Appearance windows (before/after → hidden).
+  const VIS = {
+    tp: [0.24, 9], neil: [0.26, 9],
+    neil2f: [0.06, 9], neil2i: [0.06, 9],
+    tp2f: [0.62, 9], tp2i: [0.62, 9],
+  };
 
   const followables = {
     tp:     { obj: tp,     offset: up(22, 32, 36),   name: 'TP (past)' },
@@ -124,8 +148,11 @@ export function buildEntities(scene, world) {
   };
 
   function update(t, dt) {
-    for (const a of editActors) if (!FREEZE.has(a.name)) kf(editTracks[a.name], t, a.obj.position);
-    // Visibility windows come with the real choreography; for now all three groups show.
+    for (const a of editActors) {
+      if (!FREEZE.has(a.name)) kf(editTracks[a.name], t, a.obj.position);
+      const v = VIS[a.name];
+      a.obj.visible = !v || (t >= v[0] && t <= v[1]);
+    }
   }
 
   function setXray(on) {

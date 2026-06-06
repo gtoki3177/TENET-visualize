@@ -163,6 +163,19 @@ export function buildLandmarks(root) {
   tag(partGlass, 'partition_glass');
   partGroup.add(partGlass);
   glassPanels.push(partGlass);
+  // Four bullet holes in the glass (dark discs, both faces).
+  const holeMat = track(new THREE.MeshStandardMaterial({ color: 0x0c0e10, roughness: 0.95 }), surfaceMats);
+  const holeRing = track(new THREE.MeshStandardMaterial({ color: 0x9fb6c4, roughness: 0.4, transparent: true, opacity: 0.5, side: THREE.DoubleSide }), surfaceMats);
+  for (const [hy, hz] of [[partH - 0.6, partCz - 8], [partH - 3, partCz - 2.5], [partH - 1.8, partCz + 4], [partH - 3.4, partCz + 9]]) {
+    for (const sx of [0.26, -0.26]) {
+      const hole = new THREE.Mesh(new THREE.CircleGeometry(0.55, 14), holeMat);
+      hole.position.set(sx, hy, hz); hole.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      partGroup.add(hole);
+      const crack = new THREE.Mesh(new THREE.RingGeometry(0.55, 1.1, 14), holeRing);
+      crack.position.set(sx * 0.9, hy, hz); crack.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      partGroup.add(crack);
+    }
+  }
 
   // ============================================================
   //  D. ROLLING DOORS (outer NORTH edge, two sides)
@@ -195,21 +208,42 @@ export function buildLandmarks(root) {
   // ============================================================
   const turnstileGroup = new THREE.Group();
   root.add(turnstileGroup);
-  const cylR = 5.5, cylH = 13;
-  const cz = HEX.cylZ;
+  const cylR = 5.5, cylH = 13, cz = HEX.cylZ;
+  const openA = Math.PI * 0.5;   // rectangular opening (≈90° gap in the hollow shell)
 
-  const redCylMat = track(new THREE.MeshStandardMaterial({ color: 0xc52010, roughness: 0.25, metalness: 0.2 }), surfaceMats);
-  const redCyl = edged(new THREE.Mesh(new THREE.CylinderGeometry(cylR, cylR, cylH, 32), redCylMat), 0x800000, 0.35);
-  redCyl.position.set(HEX.cylX, cylH / 2, cz);
-  tag(redCyl, 'turnstile_red');
-  turnstileGroup.add(redCyl);
+  // A HOLLOW cylinder with a rectangular opening (open-ended arc). At rest the opening
+  // faces OUTWARD; the whole group spins about its axis (driven by world.update).
+  function turnstileShell(x, faceEast, color, edgeColor) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, cz);
+    const gap = faceEast ? 0 : Math.PI;   // outward = +x (east) / -x (west)
+    const mat = track(new THREE.MeshStandardMaterial({ color, roughness: 0.25, metalness: 0.2, side: THREE.DoubleSide }), surfaceMats);
+    const shell = new THREE.Mesh(
+      new THREE.CylinderGeometry(cylR, cylR, cylH, 40, 1, true, gap + openA / 2, Math.PI * 2 - openA), mat);
+    shell.position.y = cylH / 2; shell.castShadow = true; shell.receiveShadow = true;
+    g.add(shell);
+    // jamb bars down the two edges of the opening, + top/bottom rims
+    const trimMat = track(new THREE.MeshStandardMaterial({ color: edgeColor, roughness: 0.5, metalness: 0.4 }), surfaceMats);
+    for (const s of [1, -1]) {
+      const a = gap + s * openA / 2;
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.7, cylH, 1.2), trimMat);
+      bar.position.set(Math.cos(a) * cylR, cylH / 2, -Math.sin(a) * cylR);
+      bar.rotation.y = -a; g.add(bar);
+    }
+    for (const yy of [0.4, cylH]) {
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(cylR, 0.35, 8, 40), trimMat);
+      rim.rotation.x = Math.PI / 2; rim.position.y = yy; g.add(rim);
+    }
+    const glow = new THREE.PointLight(faceEast ? 0xff2200 : 0x0055ff, 0.6, 22);
+    glow.position.y = cylH / 2; g.add(glow);
+    return g;
+  }
+  const redCyl = turnstileShell(HEX.cylX, true, 0xc52010, 0x800000);
+  tag(redCyl, 'turnstile_red'); turnstileGroup.add(redCyl);
+  const blueCyl = turnstileShell(-HEX.cylX, false, 0x0870dd, 0x003399);
+  tag(blueCyl, 'turnstile_blue'); turnstileGroup.add(blueCyl);
 
-  const blueCylMat = track(new THREE.MeshStandardMaterial({ color: 0x0870dd, roughness: 0.25, metalness: 0.2 }), surfaceMats);
-  const blueCyl = edged(new THREE.Mesh(new THREE.CylinderGeometry(cylR, cylR, cylH, 32), blueCylMat), 0x003399, 0.35);
-  blueCyl.position.set(-HEX.cylX, cylH / 2, cz);
-  tag(blueCyl, 'turnstile_blue');
-  turnstileGroup.add(blueCyl);
-
+  // Static frame (does NOT spin): base track ring, support posts, top beam.
   for (const x of [HEX.cylX, -HEX.cylX]) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(cylR + 1.2, 0.5, 8, 28), metalDarkMat);
     ring.rotation.x = Math.PI / 2; ring.position.set(x, 0.6, cz);
@@ -223,11 +257,6 @@ export function buildLandmarks(root) {
     beam.position.set(x, cylH + 2.5, cz);
     turnstileGroup.add(beam);
   }
-
-  const redGlow = new THREE.PointLight(0xff2200, 0.6, 22);
-  redGlow.position.set(HEX.cylX, cylH / 2, cz); turnstileGroup.add(redGlow);
-  const blueGlow = new THREE.PointLight(0x0055ff, 0.6, 22);
-  blueGlow.position.set(-HEX.cylX, cylH / 2, cz); turnstileGroup.add(blueGlow);
 
   // ============================================================
   //  F. PROPS — crates in the transition & outer layers
@@ -369,7 +398,8 @@ export function buildLandmarks(root) {
 
   return {
     surfaceMats, glassPanels, editables,
-    turnstileGroup, partGroup, innerGroup, midGroup, outerGroup,
+    turnstileGroup, turnstile: { red: redCyl, blue: blueCyl },
+    partGroup, innerGroup, midGroup, outerGroup,
     planeGroup, vanGroup, propsGroup, rollEast, rollWest,
   };
 }

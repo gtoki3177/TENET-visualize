@@ -149,8 +149,8 @@ function currentEvent() {
 function setT(v) {
   t = Math.max(T_MIN, Math.min(T_MAX, v));
   const tc = Math.max(0, Math.min(1, t));
-  elRed.textContent = fmt(tc * 480);      // ~8 min scene
-  elBlue.textContent = fmt((1 - tc) * 480);
+  elRed.textContent = fmt(tc * 180);      // 3-minute scene (0:00 → 3:00)
+  elBlue.textContent = fmt((1 - tc) * 180);
   const pct = (t - T_MIN) / (T_MAX - T_MIN) * 100;
   elHandle.style.left = `${pct}%`;
   elFill.style.width = `${pct}%`;
