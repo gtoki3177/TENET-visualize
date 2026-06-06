@@ -211,8 +211,18 @@ export const HEX = {
 export const RINGS = {
   inner: HEX.inner,                                            // shifted north
   mid:   offsetPolygon(HEX.inner, HEX.gapThin),
-  outer: offsetPolygon(_baseInner, HEX.gapThin + HEX.gapBig),  // from base → unchanged
+  outer: offsetPolygon(_baseInner, HEX.gapThin + HEX.gapBig),  // base → reshaped below
 };
+
+// Outer ring shape (explicit): a big hall with a LONG top edge (user edge 1), wide
+// east/west points and SHORT SE/SW walls (user edges 4/5) down to a wide bottom. Top z is
+// kept, so the room / rolling doors / 747 stay at the north.
+RINGS.outer[0] = [-58, -52];  // TL ┐ long top edge (user 1)
+RINGS.outer[1] = [ 58, -52];  // TR ┘
+RINGS.outer[2] = [ 96, 34];   // RE (east point)
+RINGS.outer[3] = [ 46, 70];   // BR ┐ short SE / SW edges (user 5 / 4)
+RINGS.outer[4] = [-46, 70];   // BL
+RINGS.outer[5] = [-96, 34];   // WE (west point)
 
 // MERGE: lift the middle ring's top corners up onto the outer ring's top edge, so the
 // middle's NE/NW edges (user 2/3) connect to the outer ring's top edge (user 1). The
@@ -223,14 +233,6 @@ export const MERGE = { skipMidTop: true };
 const _topZ = RINGS.outer[0][1];
 RINGS.mid[0] = [RINGS.mid[0][0], _topZ];   // mid TL → onto outer top edge
 RINGS.mid[1] = [RINGS.mid[1][0], _topZ];   // mid TR → onto outer top edge
-
-// Compact the OUTER ring's south half — the room now sits north, so the southern big
-// layer was oversized. Pull the east/west points and the bottom corners inward (keep the
-// top edge / rolling doors / crash fixed).
-RINGS.outer[2] = [ 58, 12];   // RE
-RINGS.outer[3] = [ 20, 40];   // BR
-RINGS.outer[4] = [-20, 40];   // BL
-RINGS.outer[5] = [-58, 12];   // WE
 {
   const xoL = RINGS.outer[0][0], xoR = RINGS.outer[1][0];  // outer top-edge x range
   const xmL = RINGS.mid[0][0],   xmR = RINGS.mid[1][0];    // where the middle joins

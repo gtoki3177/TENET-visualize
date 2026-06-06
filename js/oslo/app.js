@@ -15,12 +15,12 @@ const T_MAX =  1.05;
 
 // 7 key beats
 const EVENTS = [
-  { t: 0.00, title: '747 crashes into the freeport — the building rips open, fire erupts', loc: 'crash' },
-  { t: 0.15, title: 'Protagonist & Neil enter through the crash hole into the loading bay', loc: 'exterior' },
-  { t: 0.30, title: 'They find the vault room — the Rotas turnstile is running', loc: 'turnstile' },
-  { t: 0.45, title: 'An inverted figure bursts backward through the glass wall — the Protagonist doesn\'t know it\'s himself', loc: 'hallway' },
-  { t: 0.60, title: 'The fight — forward self grapples his inverted self in the corridor; bullets un-fire', loc: 'hallway' },
-  { t: 0.80, title: 'The inverted self retreats back through the security door toward the turnstile', loc: 'turnstile' },
+  { t: 0.00, title: 'A hijacked 747 explodes outside the freeport — the distraction', loc: 'crash' },
+  { t: 0.15, title: 'Protagonist & Neil slip in through the east rolling door', loc: 'hallway' },
+  { t: 0.30, title: 'They spiral in to the vault — the Rotas turnstile is running', loc: 'turnstile' },
+  { t: 0.45, title: 'A masked figure bursts backward from the turnstile — the Protagonist doesn\'t know it\'s himself', loc: 'turnstile' },
+  { t: 0.60, title: 'The fight at the turnstile — forward grapples inverted; bullets un-fire', loc: 'turnstile' },
+  { t: 0.80, title: 'The inverted self backs into the blue turnstile and inverts away', loc: 'turnstile' },
   { t: 1.00, title: 'Neil pulls the Protagonist out — the freeport burns behind them', loc: 'crash' },
 ];
 
@@ -107,12 +107,20 @@ function followTag(obj, text, kind, y = 9) {
   const o = new CSS2DObject(el);
   o.position.set(0, y, 0);
   obj.add(o);
+  el._obj2d = o;   // CSS2DRenderer ignores parent.visible — synced manually below
   return el;
 }
-followTag(entities.refs.tpFwd, 'PROTAGONIST', 'fwd');
-followTag(entities.refs.tpInv, 'PROTAGONIST ◀', 'inv');
-followTag(entities.refs.neilFwd, 'NEIL', 'fwd');
-followTag(entities.refs.tpRev, 'PROTAGONIST (REV)', 'fwd');
+const charTags = [
+  [followTag(entities.refs.tp,     'TP', 'fwd'),      entities.refs.tp],
+  [followTag(entities.refs.neil,   'Neil', 'fwd'),    entities.refs.neil],
+  [followTag(entities.refs.tp2f,   'TP 2', 'fwd'),    entities.refs.tp2f],
+  [followTag(entities.refs.neil2f, 'Neil 2', 'fwd'),  entities.refs.neil2f],
+  [followTag(entities.refs.tp2i,   'TP 2', 'inv'),    entities.refs.tp2i],
+  [followTag(entities.refs.neil2i, 'Neil 2', 'inv'),  entities.refs.neil2i],
+];
+function syncCharTags() {
+  for (const [tag, obj] of charTags) if (tag._obj2d) tag._obj2d.visible = obj.visible;
+}
 
 // ---------- Timeline state ----------
 let t = parseFloat(localStorage.getItem(STORE_KEY));
@@ -299,11 +307,12 @@ function setInvertedTime(on) {
 
 // ---------- Subjective timeline ----------
 const SUBJ = {
-  tpFwd:   { name: 'PROTAGONIST (FWD)', map: s => s, inv: () => false },
-  tpRev:   { name: 'PROTAGONIST (REV)', map: s => s, inv: () => false },
-  neilFwd: { name: 'NEIL (FWD)',        map: s => s, inv: () => false },
-  tpInv:   { name: 'PROTAGONIST (INV)', map: s => 1 - s, inv: () => true },
-  neilInv: { name: 'NEIL (INV)',        map: s => 1 - s, inv: () => true },
+  tp:     { name: 'TP (PAST)',        map: s => s,     inv: () => false },
+  neil:   { name: 'NEIL (PAST)',      map: s => s,     inv: () => false },
+  tp2f:   { name: 'TP 2 (FWD)',       map: s => s,     inv: () => false },
+  neil2f: { name: 'NEIL 2 (FWD)',     map: s => s,     inv: () => false },
+  tp2i:   { name: 'TP 2 (INV)',       map: s => 1 - s, inv: () => true },
+  neil2i: { name: 'NEIL 2 (INV)',     map: s => 1 - s, inv: () => true },
 };
 
 const subjRow = document.getElementById('subj-row');
@@ -427,6 +436,7 @@ function animate(now) {
     }
   }
   entities.update(t, dt);
+  syncCharTags();
   if (editor.active && playing && editor.selected) editor.focusSelected();
   world.update(t);
   views.update(dt);
@@ -437,6 +447,7 @@ function animate(now) {
 }
 // Paint one synchronous frame
 entities.update(t, 0.016);
+syncCharTags();
 world.update(t);
 controls.update();
 renderer.render(scene, camera);
