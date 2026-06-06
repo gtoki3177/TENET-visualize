@@ -284,14 +284,15 @@ export function buildWorld(scene) {
     );
     // Turnstile: before a figure emerges the outward opening WINDS 180° to the far side
     // (blue CCW / red CW), then UNWINDS back to front (the way it came) AS the figure
-    // appears. Two emergence beats: Neil 2 (~0.10) and TP 2 (~0.62).
+    // appears. Two emergence beats (cycle END = appearance): Neil 2 at 0:07, TP 2 at 1:00.
     if (landmarks.turnstile) {
       const wr = (ta, w, r) => {           // 0→π over [ta-w-r, ta-r], then π→0 over [ta-r, ta]
         if (t <= ta - w - r || t >= ta) return 0;
         return t < ta - r ? Math.PI * (t - (ta - w - r)) / w : Math.PI * (1 - (t - (ta - r)) / r);
       };
-      const SPIN = 7 / 180;   // wind+unwind in ~7s of the 180s clock (was 18s), split evenly
-      const ang = wr(0.10, SPIN / 2, SPIN / 2) + wr(0.62, SPIN / 2, SPIN / 2);
+      const SPIN = 7 / 180;   // wind+unwind in ~7s of the 180s clock, split evenly
+      const ang = wr(7 / 180, SPIN / 2, SPIN / 2)    // first turn ends at 0:07
+                + wr(60 / 180, SPIN / 2, SPIN / 2);  // second turn ends at 1:00
       landmarks.turnstile.blue.rotation.y = ang;    // CCW out, CW back
       landmarks.turnstile.red.rotation.y = -ang;    // CW out, CCW back
     }
