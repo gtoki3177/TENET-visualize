@@ -380,6 +380,7 @@ document.getElementById('help').addEventListener('click', () => intro.classList.
 // ---------- Scene editor (Landmarks) ----------
 const editor = new Editor({
   scene, camera, renderer, controls,
+  namespace: 'oslo',   // isolate Oslo's saved edits from Stalsk (shared localStorage origin)
   editables: [...world.landmarks.editables, ...entities.edit.actors.map(a => a.obj)],
   actorsApi: entities.edit,
   getTime: () => t,

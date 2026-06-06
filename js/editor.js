@@ -1,8 +1,13 @@
 import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
-const STORE_KEY = 'tenet_scene_edits';
-const SLOTS_KEY = 'tenet_scene_slots';
+// Per-scene namespacing: each scene page loads its own editor.js module instance, so these
+// module-level keys are independent per scene. A `namespace` (e.g. 'oslo') is appended so
+// Stalsk and Oslo edits don't collide in localStorage (both have actors named tp/neil).
+const STORE_BASE = 'tenet_scene_edits';
+const SLOTS_BASE = 'tenet_scene_slots';
+let STORE_KEY = STORE_BASE;
+let SLOTS_KEY = SLOTS_BASE;
 const round = (v) => Math.round(v * 1000) / 1000;
 const TPARAMS = [
   { cat: 'Hill',  k: 'hillR', min: 60, max: 220, step: 5, label: 'radius' },
@@ -29,7 +34,8 @@ function save(d) { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
 // current clock t → a keyframe on that actor's track). Persists to localStorage, applied
 // on load. Export/Import JSON, Reset, Ctrl/Cmd+Z undo, orbit recentres on selection.
 export class Editor {
-  constructor({ scene, camera, renderer, controls, editables, actorsApi, getTime, onEnter, onSelectionChange, terrainParams, terrainDefaults, rebuildTerrain }) {
+  constructor({ scene, camera, renderer, controls, editables, actorsApi, getTime, onEnter, onSelectionChange, terrainParams, terrainDefaults, rebuildTerrain, namespace }) {
+    if (namespace) { STORE_KEY = STORE_BASE + '_' + namespace; SLOTS_KEY = SLOTS_BASE + '_' + namespace; }
     this.scene = scene; this.camera = camera; this.renderer = renderer;
     this.controls = controls; this.editables = editables;
     this.actorsApi = actorsApi || null; this.getTime = getTime || (() => 0);
