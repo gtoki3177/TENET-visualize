@@ -233,7 +233,7 @@ function syncSubjFromGlobal() {
 function trackMove(e) { setT(trackToT(e.clientX)); syncSubjFromGlobal(); }
 function trackUp() { window.removeEventListener('pointermove', trackMove); window.removeEventListener('pointerup', trackUp); }
 elTrackWrap.addEventListener('pointerdown', (e) => {
-  if (e.target.classList.contains('marker')) return;   // let the diamond markers handle their own clicks
+  // (drag works even when the press starts on a keyframe/event marker)
   e.preventDefault();
   pause(); setT(trackToT(e.clientX)); syncSubjFromGlobal();
   window.addEventListener('pointermove', trackMove);
@@ -504,12 +504,15 @@ function jumpMarker(dir) {
   if (target === undefined) return;        // already at the first/last marker
   seekTo(target);
 }
+const T_STEP = 0.004;   // smallest scrub step
 addEventListener('keydown', (e) => {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
   const tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   e.preventDefault();
-  jumpMarker(e.key === 'ArrowRight' ? 1 : -1);
+  const dir = e.key === 'ArrowRight' ? 1 : -1;
+  if (e.shiftKey) jumpMarker(dir);          // Shift+←/→ : jump to prev/next keyframe (or beat)
+  else seekTo(t + dir * T_STEP);            // ←/→ : step by the smallest time unit
 });
 
 // ---------- Resize ----------
