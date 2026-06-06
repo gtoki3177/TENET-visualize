@@ -8,18 +8,18 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
-  body { margin: 0; padding: 0; background: #1a2129; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
+  body { margin: 0; padding: 0; background: #fff; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
   .scene-tabs { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
     display: flex; align-items: stretch; height: 40px;
-    background: rgba(26, 33, 41, 0.92); backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.08); }
+    background: #ffffff; backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0,0,0,0.12); }
   .scene-tab { font-family: inherit; font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
     padding: 0 22px; border: none; background: transparent;
-    color: rgba(255,255,255,0.4); cursor: pointer;
+    color: rgba(0,0,0,0.45); cursor: pointer;
     transition: color 0.2s, background 0.2s, box-shadow 0.2s;
     text-decoration: none; display: flex; align-items: center; }
-  .scene-tab:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.04); }
-  .scene-tab.active { color: #fff; background: rgba(255,255,255,0.08);
+  .scene-tab:hover { color: rgba(0,0,0,0.78); background: rgba(0,0,0,0.04); }
+  .scene-tab.active { color: #111; background: rgba(0,0,0,0.035);
     box-shadow: inset 0 -2px 0 #e5484d; }
   .scene-tab[data-target="oslo.html"].active { box-shadow: inset 0 -2px 0 #2f6fed; }
   .scene-tab .tab-dot { width: 6px; height: 6px; border-radius: 50%;
