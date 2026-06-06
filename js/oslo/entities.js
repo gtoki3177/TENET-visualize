@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { COL, POS } from './config.js';
+import { COL, POS, DOORS } from './config.js';
 
 function kf(frames, t, out) {
   if (t <= frames[0].t) return out.copy(frames[0].p);
@@ -49,56 +49,59 @@ export function buildEntities(scene, world) {
   const stretcher = makeStretcher(); root.add(stretcher);
   const tpInv2 = makeUnit(COL.inverted, 1.15); root.add(tpInv2);
 
-  // ── Keyframes aligned to new room geometry ──
-  // Red corridor center x ≈ 8 (+x side)
-  // Blue corridor center x ≈ -8 (-x side)
-  // Corridors run z=75 (south/loading) to z=5 (north/vault entrance)
-  // Vault z ≈ -20, turnstile z ≈ -25
-  // Crash hole z ≈ 85
+  // ── Keyframes threaded through the hexagon doors (shared geometry: DOORS) ──
+  // Each colour has a straight run out its own side: cylinder → inner bottom door →
+  // middle SE/SW door → outer SE/SW rolling door → outside.
+  const D = DOORS;
+  const P = (pt, dz = 0) => up(pt.x, 0, pt.z + dz);
+  const out = (pt) => up(pt.x * 1.32, 0, pt.z * 1.28);  // staging just outside a rolling door
 
-  const redX = 8;   // red corridor center
-  const blueX = -8; // blue corridor center
-
+  // Protagonist (Forward, red): in the SE rolling door → red cylinder → fight.
   const tpFwdFrames = [
-    { t: 0.15, p: up(redX, 0, 82) },    // Crash hole entry (Red side)
-    { t: 0.25, p: up(redX, 0, 40) },    // Red corridor midpoint
-    { t: 0.35, p: up(redX, 0, -15) },   // Red side of vault
-    { t: 0.45, p: up(redX, 0, -15) },   // Discovers turnstile, fights tpInv
-    { t: 0.55, p: up(redX, 0, 10) },    // Pushed out to corridor fighting
-    { t: 0.65, p: up(redX, 0, 55) },    // Near loading bay fighting
-    { t: 0.70, p: up(redX, 0, 82) },    // Fight ends at crash hole
+    { t: 0.08, p: out(D.rollE) },
+    { t: 0.16, p: P(D.rollE) },
+    { t: 0.26, p: P(D.midSE) },
+    { t: 0.34, p: P(D.innE) },
+    { t: 0.46, p: P(D.redCyl, 2) },                       // at the red turnstile — fight
+    { t: 0.58, p: up(D.redCyl.x + 5, 0, D.redCyl.z + 8) },
+    { t: 0.70, p: P(D.innE) },
   ];
 
+  // Neil (Forward, red): in the SW rolling door → blue side.
   const neilFwdFrames = [
-    { t: 0.15, p: up(redX - 4, 0, 82) },  // Crash hole (Red side, behind TP)
-    { t: 0.25, p: up(redX - 3, 0, 40) },  // Red corridor
-    { t: 0.35, p: up(redX - 3, 0, -15) }, // Red vault
-    { t: 0.45, p: up(blueX, 0, -15) },    // Crosses to Blue vault!
-    { t: 0.55, p: up(blueX, 0, 30) },     // Chasing tpRev in blue corridor
-    { t: 0.65, p: up(blueX, 0, 70) },     // At loading bay
-    { t: 0.70, p: up(5, 0, 85) },         // Meets up with TP outside
+    { t: 0.14, p: out(D.rollW) },
+    { t: 0.22, p: P(D.rollW) },
+    { t: 0.32, p: P(D.midSW) },
+    { t: 0.42, p: P(D.innW) },
+    { t: 0.54, p: P(D.blueCyl, 2) },
+    { t: 0.70, p: P(D.blueCyl, 2) },
   ];
 
-  // TP_INV plays backwards visually.
+  // TP — Inverted self (blue suit), plays backwards: bursts from the red cylinder, back out SE.
   const tpInvFrames = [
-    { t: 0.45, p: up(8, 0, -25) },    // Bursting backward out of Red Turnstile
-    { t: 0.55, p: up(redX, 0, -10) }, // Fights TP near vault entrance
-    { t: 0.60, p: up(redX, 0, 30) },  // Fights TP in corridor
-    { t: 0.65, p: up(redX, 0, 82) },  // Sucked out through crash hole
+    { t: 0.40, p: P(D.redCyl) },
+    { t: 0.48, p: P(D.innE) },
+    { t: 0.55, p: P(D.midSE) },
+    { t: 0.62, p: P(D.rollE) },
+    { t: 0.66, p: out(D.rollE) },
   ];
 
+  // TP — Reverted (red again): pops out of the blue cylinder, runs out the SW.
   const tpRevFrames = [
-    { t: 0.45, p: up(-8, 0, -25) },   // Pops out of Blue cylinder (Forward now!)
-    { t: 0.50, p: up(blueX, 0, 20) }, // Runs out blue corridor
-    { t: 0.60, p: up(blueX, 0, 65) }, // Runs to loading bay
-    { t: 0.65, p: up(-5, 0, 90) },    // Escapes through crash area
+    { t: 0.45, p: P(D.blueCyl) },
+    { t: 0.52, p: P(D.innW) },
+    { t: 0.58, p: P(D.midSW) },
+    { t: 0.64, p: P(D.rollW) },
+    { t: 0.66, p: out(D.rollW) },
   ];
 
+  // Neil — Inverted (stretcher): wheeled in from the SW to the blue cylinder.
   const neilInvFrames = [
-    { t: 0.75, p: up(blueX, 0, 90) },   // Out of ambulance to Blue crash hole
-    { t: 0.85, p: up(blueX, 0, 40) },   // Blue corridor
-    { t: 0.95, p: up(blueX, 0, -15) },  // Blue vault
-    { t: 1.05, p: up(-8, 0, -25) },     // Into Blue turnstile
+    { t: 0.75, p: out(D.rollW) },
+    { t: 0.83, p: P(D.rollW) },
+    { t: 0.92, p: P(D.midSW) },
+    { t: 1.00, p: P(D.innW) },
+    { t: 1.05, p: P(D.blueCyl) },
   ];
 
   const followables = {

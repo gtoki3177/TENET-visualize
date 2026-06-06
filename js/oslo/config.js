@@ -110,45 +110,160 @@ export const BLDG = {
   crashH:  16,     // hole height
 };
 
-// ── Key Positions (world units) ─────────────────────────
-export const POS = {
-  // Building origin is at (0, 0, 20)  — center-ish of the structure
-  bldgCenter: { x: 0, z: 20 },
-
-  // Exterior / crash site
-  exterior:   { x: 15,  z: 110 },   // south exterior (tarmac)
-  crashWall:  { x: 12,  z: 85  },   // where the 747 nose punches through
-  crashHole:  { x: 12,  z: 85  },   // center of the breach
-  plane:      { x: 25,  z: 115 },   // 747 wreckage centre on tarmac
-
-  // Interior
-  loading:    { x: 0,   z: 78  },   // loading bay (entry after crash)
-
-  // Twin corridors
-  hallRed:    { x: 15,  z: 40  },   // Red (forward) corridor center
-  hallBlue:   { x: -15, z: 40  },   // Blue (inverted) corridor center
-  hallStart:  { z: 75 },            // south end of corridors (near loading)
-  hallEnd:    { z: 5 },             // north end (approaching vault)
-
-  // The Proving Window divides the two corridors and the vault room
-  provingWin: { x: 0,   z: 0  },    // center of the proving window
-
-  // Vault / Turnstile (Rectangular room)
-  vault:      { x: 0,   z: -20 },   // vault center
-  vaultRed:   { x: 14,  z: -20 },   // inside vault, red side
-  vaultBlue:  { x: -14, z: -20 },   // inside vault, blue side
-  turnstile:  { x: 0,   z: -25 },   // the Rotas turnstile device (straddles the window)
-
-  // South face of the building
-  southWall:  { z: 85 },
-  // North face (behind vault)
-  northWall:  { z: -40 },
-
-  // Vertical
-  floorY:     0,
-  ceilingH:   20,
-};
-
 export const clamp01 = (v) => Math.max(0, Math.min(1, v));
 export const lerp    = (a, b, t) => a + (b - a) * t;
 export const smooth  = (t) => t * t * (3 - 2 * t);
+
+// ── 3-LAYER HEXAGON GEOMETRY (the freeport core) ─────────
+// Three concentric, IRREGULAR hexagons. NO ceiling/roof. North = -z (top of the plan),
+// South = +z (bottom). Blue turnstile sits West (-x), Red East (+x).
+//
+// Edge numbering (the user's, around the inner turnstile room):
+//   1 = top edge, hugging the turnstiles            (base length L)
+//   2 = NW edge (blue side)  ┐ ≈ 1.5·L, ~110° from edge 1
+//   3 = NE edge (red side)   ┘
+//   4 = SW edge (blue side)  ┐ ≈ 0.8·L, ~110° from edges 2/3
+//   5 = SE edge (red side)   ┘
+//   6 = bottom edge — the door edge, PARALLEL to edge 1 (bottom corners ≈140°)
+// The two bottom (6) doors flank the partition; the SE/SW (4/5) edges hold the middle-ring
+// doors; the outer ring's TOP edge holds the two rolling steel doors → outside.
+//
+// Corner order [TL, TR, RE, BR, BL, WE]; CODE edge indices:
+//   0 TL→TR = user 1 (top)        3 BR→BL = user 6 (bottom / doors)
+//   1 TR→RE = user 3 (NE/red)     4 BL→WE = user 4 (SW/blue)
+//   2 RE→BR = user 5 (SE/red)     5 WE→TL = user 2 (NW/blue)
+//
+// Inner corners derived from L, the 1.5L sides, and the 110° corner angles:
+const _L = 24;                          // edge-1 base length
+const _S = 1.5 * _L;                    // edges 2 & 3
+const _M = 0.8 * _L;                    // edges 4 & 5  (→ bottom edge ≈ 0.8L too)
+const _d3 = { x: Math.sin(20 * Math.PI / 180), z: Math.cos(20 * Math.PI / 180) }; // NE dir
+const _TR = { x: _L / 2, z: -12 };
+const _RE = { x: _TR.x + _S * _d3.x, z: _TR.z + _S * _d3.z };
+// SE dir = NE turned 70° clockwise (in x-right / z-down): (cos140°, sin140°)
+const _d5 = { x: Math.cos(140 * Math.PI / 180), z: Math.sin(140 * Math.PI / 180) };
+const _BR = { x: _RE.x + _M * _d5.x, z: _RE.z + _M * _d5.z };
+const _innerCorners = [
+  [-_TR.x, _TR.z],   // TL
+  [ _TR.x, _TR.z],   // TR
+  [ _RE.x, _RE.z],   // RE
+  [ _BR.x, _BR.z],   // BR
+  [-_BR.x, _BR.z],   // BL
+  [-_RE.x, _RE.z],   // WE
+];
+
+// Outward edge-offset of a closed polygon (preserves edge directions / angles / parallelism).
+function offsetPolygon(corners, dist) {
+  const n = corners.length;
+  const lines = corners.map((a, i) => {
+    const b = corners[(i + 1) % n];
+    const dx = b[0] - a[0], dz = b[1] - a[1];
+    const L = Math.hypot(dx, dz) || 1;
+    const ux = dx / L, uz = dz / L;
+    // outward normal for clockwise (z-down) winding is (dz, -dx)
+    return { px: a[0] + dist * uz, pz: a[1] - dist * ux, ux, uz };
+  });
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const l0 = lines[(i - 1 + n) % n], l1 = lines[i];
+    const det = -l0.ux * l1.uz + l1.ux * l0.uz;
+    const dx = l1.px - l0.px, dz = l1.pz - l0.pz;
+    const t = (-dx * l1.uz + l1.ux * dz) / det;
+    out.push([l0.px + t * l0.ux, l0.pz + t * l0.uz]);
+  }
+  return out;
+}
+function pointOnEdge(ring, i, f) {
+  const a = ring[i], b = ring[(i + 1) % ring.length];
+  return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f };
+}
+
+export const HEX = {
+  inner: _innerCorners,
+  gapThin: 12,   // thin transition layer (inner hex → middle hex)
+  gapBig:  28,   // large outer layer    (middle hex → outer hex)
+  wallH:   18,   // wall height (NO roof above)
+
+  // Doors per ring: { CODE-edgeIndex: [ {at: 0..1 along edge, w} ] }
+  // The two ROLLING doors are on the OUTER ring's NORTH (top) edge, at its two sides —
+  // this is where the middle ring's 2/3 edges meet the outer ring's edge 1, and where the
+  // 747 crashes in. Inner doors flank the partition on the south edge.
+  innerDoors: { 3: [{ at: 0.30, w: 6 }, { at: 0.70, w: 6 }] },        // bottom (user 6), flank partition
+  midDoors:   { 2: [{ at: 0.50, w: 9 }], 4: [{ at: 0.50, w: 9 }] },   // SE/SW (user 5/4)
+  outerDoors: { 0: [{ at: 0.26, w: 14 }, { at: 0.74, w: 14 }] },      // NORTH (user 1) two sides: rolling doors → outside
+
+  // Turnstile cylinders + partition
+  cylZ:   -4,
+  cylX:    8,
+  partN:  -4,    // partition runs from between the cylinders …
+  partS:  _BR.z, // … south to the bottom (door) edge
+};
+
+// Concentric rings (arrays of [x,z]).
+export const RINGS = {
+  inner: HEX.inner,
+  mid:   offsetPolygon(HEX.inner, HEX.gapThin),
+  outer: offsetPolygon(HEX.inner, HEX.gapThin + HEX.gapBig),
+};
+
+// MERGE: lift the middle ring's top corners up onto the outer ring's top edge, so the
+// middle's NE/NW edges (user 2/3) connect to the outer ring's top edge (user 1). The
+// middle's own top edge is then dropped (it coincides with the outer top), and the two
+// side segments of the outer top edge — outboard of where the middle joins — become the
+// rolling doors. (So the "big outer layer" is open at the top, a horseshoe.)
+export const MERGE = { skipMidTop: true };
+const _topZ = RINGS.outer[0][1];
+RINGS.mid[0] = [RINGS.mid[0][0], _topZ];   // mid TL → onto outer top edge
+RINGS.mid[1] = [RINGS.mid[1][0], _topZ];   // mid TR → onto outer top edge
+{
+  const xoL = RINGS.outer[0][0], xoR = RINGS.outer[1][0];  // outer top-edge x range
+  const xmL = RINGS.mid[0][0],   xmR = RINGS.mid[1][0];    // where the middle joins
+  const span = xoR - xoL;
+  const atOf = x => (x - xoL) / span;
+  const segCw = (xoL + xmL) / 2, segCe = (xmR + xoR) / 2;  // centres of the two side gaps
+  const segW = Math.max(10, (xoR - xmR) - 3);
+  HEX.outerDoors = { 0: [ { at: atOf(segCw), w: segW }, { at: atOf(segCe), w: segW } ] };
+}
+
+// World positions of every doorway.
+export const DOORS = {
+  rollW:  pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][0].at),  // outer NORTH rolling door, west
+  rollE:  pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][1].at),  // outer NORTH rolling door, east
+  midSE:  pointOnEdge(RINGS.mid,   2, 0.5),                      // middle SE (red)
+  midSW:  pointOnEdge(RINGS.mid,   4, 0.5),                      // middle SW (blue)
+  innE:   pointOnEdge(RINGS.inner, 3, HEX.innerDoors[3][0].at),  // inner bottom, east (red)
+  innW:   pointOnEdge(RINGS.inner, 3, HEX.innerDoors[3][1].at),  // inner bottom, west (blue)
+  redCyl:  { x:  HEX.cylX, z: HEX.cylZ },
+  blueCyl: { x: -HEX.cylX, z: HEX.cylZ },
+};
+
+// ── Key Positions (world units) ─────────────────────────
+export const POS = {
+  bldgCenter: { x: 0, z: 0 },
+
+  // Crash site — the 747 explodes OUTSIDE, north of the east rolling door (it does not
+  // breach the wall). Fire/smoke sit outside; the plane wreck is further north.
+  exterior:   { x: 0,              z: DOORS.rollE.z - 85 },
+  crashWall:  { x: DOORS.rollE.x,  z: DOORS.rollE.z },
+  crashHole:  { x: DOORS.rollE.x,  z: DOORS.rollE.z - 18 },   // explosion outside the wall
+  plane:      { x: DOORS.rollE.x + 3, z: DOORS.rollE.z - 50 },
+
+  // Turnstile room core
+  provingWin: { x: 0, z: (HEX.partN + HEX.partS) / 2 },
+  vault:      { x: 0, z: HEX.cylZ },
+  vaultRed:   { x:  HEX.cylX, z: HEX.cylZ },
+  vaultBlue:  { x: -HEX.cylX, z: HEX.cylZ },
+  turnstile:  { x: 0, z: HEX.cylZ },
+
+  // Rolling doors (outer top edge) → outside
+  gateEast:   DOORS.rollE,
+  gateWest:   DOORS.rollW,
+
+  // South / north reference (for tarmac markings)
+  southWall:  { z: 70 },
+  northWall:  { z: RINGS.outer[0][1] - 6 },
+
+  // Vertical
+  floorY:     0,
+  ceilingH:   18,
+};

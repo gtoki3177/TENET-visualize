@@ -32,7 +32,7 @@ scene.background = new THREE.Color(0x8a9aae);
 scene.fog = new THREE.Fog(0x8a9aae, 350, 900);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 3000);
-camera.position.set(80, 100, 220);
+camera.position.set(70, 85, 95);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio));
@@ -71,7 +71,7 @@ controls.dampingFactor = 0.08;
 controls.maxPolarAngle = Math.PI * 0.495;
 controls.minDistance = 15;
 controls.maxDistance = 700;
-controls.target.set(0, 10, 40);
+controls.target.set(0, 8, -5);
 
 // ---------- Build world + entities ----------
 const world = buildWorld(scene);
@@ -94,9 +94,9 @@ function addLabel(point, text, key = null) {
   return obj;
 }
 addLabel(world.points.crash, 'CRASH SITE', 'crash');
-addLabel(world.points.loading, 'LOADING BAY', 'exterior');
-addLabel(world.points.hallway, 'FIGHT HALLWAY', 'hallway');
-addLabel(world.points.glassWall, 'GLASS WALL', 'hallway');
+addLabel(world.points.gateEast, 'ROLLING DOOR (E)', 'hallway');
+addLabel(world.points.gateWest, 'ROLLING DOOR (W)', null);
+addLabel(world.points.partition, 'PARTITION WALL', null);
 addLabel(world.points.turnstile, 'ROTAS TURNSTILE', 'turnstile');
 
 // Character tags
@@ -230,7 +230,7 @@ function syncDirAvailability() {
 }
 
 // ---------- View / Location panels ----------
-const godFraming = { pos: new THREE.Vector3(80, 100, 220), target: new THREE.Vector3(0, 10, 40) };
+const godFraming = { pos: new THREE.Vector3(70, 85, 95), target: new THREE.Vector3(0, 8, -5) };
 const viewPanel = document.getElementById('view-panel');
 const viewSelectedEl = document.getElementById('view-selected');
 const locPanel = document.getElementById('loc-panel');

@@ -225,9 +225,9 @@ export function buildWorld(scene) {
   const v = (x, y, z) => new THREE.Vector3(x, y, z);
   const locations = {
     exterior: {
-      label: 'Freeport Exterior',
-      target: v(0, 12, 100),
-      pos: v(-30, 55, 200),
+      label: 'Freeport Overview',
+      target: v(0, 8, 0),
+      pos: v(120, 95, 150),
     },
     crash: {
       label: 'Crash Site',
@@ -235,24 +235,24 @@ export function buildWorld(scene) {
       pos: v(POS.crashHole.x - 35, 30, POS.crashHole.z + 45),
     },
     hallway: {
-      label: 'Twin Corridors',
-      target: v(0, 8, 40),
-      pos: v(30, 28, 80),
+      label: 'Rolling Doors (sides)',
+      target: v(POS.gateEast.x, 8, POS.gateEast.z),
+      pos: v(POS.gateEast.x + 60, 34, POS.gateEast.z + 40),
     },
     turnstile: {
       label: 'Turnstile Room',
-      target: v(0, 8, POS.vault.z),
-      pos: v(35, 28, POS.vault.z + 40),
+      target: v(0, 8, -2),
+      pos: v(40, 30, 44),
     },
   };
 
   const points = {
-    exterior: v(0, 22, 100),
-    crash:    v(POS.crashHole.x, 20, POS.crashHole.z),
-    hallway:  v(0, 16, 40),
-    glassWall: v(POS.provingWin.x, 14, POS.provingWin.z),
-    turnstile: v(0, 14, POS.turnstile.z),
-    loading:  v(POS.loading.x, 12, POS.loading.z),
+    exterior:  v(0, 24, -8),
+    crash:     v(POS.crashHole.x, 20, POS.crashHole.z),
+    gateEast:  v(POS.gateEast.x, 13, POS.gateEast.z),
+    gateWest:  v(POS.gateWest.x, 13, POS.gateWest.z),
+    partition: v(POS.provingWin.x, 15, POS.provingWin.z),
+    turnstile: v(0, 15, POS.turnstile.z),
   };
 
   // ============================================================
