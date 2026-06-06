@@ -81,14 +81,16 @@ controls.target.set(170, 0, -40);
 // freed for selection. Pan lets the view leave the god-orbit centre / a followed character.
 controls.enablePan = true;
 controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
-// Decide middle-button action from Shift held AT click time. Listen on WINDOW in the
-// capture phase so this runs BEFORE OrbitControls' own canvas pointerdown handler (which
-// reads mouseButtons) — at the target element, listeners fire in registration order, so a
-// canvas listener would run too late. e.shiftKey is focus-independent (works in the iframe).
-window.addEventListener('pointerdown', (e) => {
-  if (e.button === 1 && e.target === renderer.domElement)
-    controls.mouseButtons.MIDDLE = e.shiftKey ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
-}, true);
+// Shift switches the middle button to PAN. Set it on Shift keydown/keyup (BEFORE any click,
+// so OrbitControls reads the right value at pointerdown regardless of listener order).
+// Attach to this window AND the top/parent window so it fires whether the scene iframe or
+// the index shell has keyboard focus.
+const _setMid = (pan) => { controls.mouseButtons.MIDDLE = pan ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE; };
+const _onShift = (e) => { if (e.key === 'Shift') _setMid(e.type === 'keydown'); };
+const _wins = new Set([window]);
+try { if (window.top) _wins.add(window.top); } catch (_) {}
+try { if (window.parent) _wins.add(window.parent); } catch (_) {}
+for (const w of _wins) { w.addEventListener('keydown', _onShift); w.addEventListener('keyup', _onShift); }
 renderer.domElement.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
 
 // ---------- Build world + entities ----------
