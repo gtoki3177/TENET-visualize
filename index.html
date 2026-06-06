@@ -36,20 +36,26 @@
     <button class="scene-tab" data-target="oslo.html"><span class="tab-dot dot-blue"></span>Oslo Freeport · Turnstile</button>
   </nav>
   
-  <iframe id="viewer" src="stalsk.html"></iframe>
+  <iframe id="viewer"></iframe>
 
   <script>
     const tabs = document.querySelectorAll('.scene-tab');
     const viewer = document.getElementById('viewer');
-    
+
+    // Initial scene from ?scene= (so a direct scene page can redirect here and keep its tab).
+    const want = new URLSearchParams(location.search).get('scene') === 'oslo'
+      ? 'oslo.html' : 'stalsk.html';
+    const select = (target) => {
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.target === target));
+      if (viewer.src.split('/').pop() !== target) viewer.src = target;
+    };
+    select(want);
+
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
-        // Update active tab
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        
-        // Load iframe content
-        viewer.src = tab.dataset.target;
+        select(tab.dataset.target);
+        const s = tab.dataset.target === 'oslo.html' ? 'oslo' : 'stalsk';
+        history.replaceState(null, '', '?scene=' + s);
       });
     });
   </script>
