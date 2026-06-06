@@ -77,6 +77,14 @@ controls.minDistance = 18;
 controls.maxDistance = 1800;
 controls.target.set(170, 0, -40);
 
+// Blender-style navigation: MIDDLE = orbit, SHIFT+MIDDLE = pan, wheel = zoom; left button
+// freed for selection. Pan lets the view leave the god-orbit centre / a followed character.
+controls.enablePan = true;
+controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
+addEventListener('keydown', (e) => { if (e.key === 'Shift') controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN; });
+addEventListener('keyup',   (e) => { if (e.key === 'Shift') controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE; });
+renderer.domElement.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+
 // ---------- Build world + entities ----------
 const world = buildWorld(scene);
 const entities = buildEntities(scene, world);

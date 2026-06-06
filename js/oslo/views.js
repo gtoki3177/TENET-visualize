@@ -52,6 +52,7 @@ export class ViewManager {
     this.controls.target.copy(this._tmp);
     this.camera.position.copy(this._tmp).add(f.offset);
     this.camera.lookAt(this._tmp);
+    this._lastFollowPos = this._tmp.clone();
   }
 
   followObject(f) {
@@ -59,6 +60,7 @@ export class ViewManager {
     this.mode = 'follow';
     this._follow = f;
     this.controls.enabled = true;
+    this._lastFollowPos = null;
   }
 
   update(dt) {
@@ -77,10 +79,14 @@ export class ViewManager {
     }
 
     if (this.mode === 'follow' && this._follow) {
+      // Shift the view by the character's frame-to-frame movement (keeps it framed) WITHOUT
+      // snapping the target onto it — so a Shift+middle pan offset is preserved.
       this._follow.obj.getWorldPosition(this._tmp);
-      this._delta.subVectors(this._tmp, this.controls.target);
+      if (!this._lastFollowPos) this._lastFollowPos = this._tmp.clone();
+      this._delta.subVectors(this._tmp, this._lastFollowPos);
       this.camera.position.add(this._delta);
-      this.controls.target.copy(this._tmp);
+      this.controls.target.add(this._delta);
+      this._lastFollowPos.copy(this._tmp);
     }
   }
 }

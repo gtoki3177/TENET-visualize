@@ -55,6 +55,7 @@ export class ViewManager {
     this.controls.target.copy(this._tmp);
     this.camera.position.copy(this._tmp).add(f.offset);
     this.camera.lookAt(this._tmp);
+    this._lastFollowPos = this._tmp.clone();
   }
 
   // Hand off to a different followable WITHOUT touching the camera, so the user's
@@ -65,6 +66,7 @@ export class ViewManager {
     this.mode = 'follow';
     this._follow = f;
     this.controls.enabled = true;
+    this._lastFollowPos = null;
   }
 
   update(dt) {
@@ -86,10 +88,14 @@ export class ViewManager {
     // so it stays centred. controls.update() (called by the main loop) then applies
     // the user's orbit/zoom around that moving target.
     if (this.mode === 'follow' && this._follow) {
+      // Shift camera + target by the character's frame-to-frame movement (keeps it framed
+      // and preserves the user's orbit/zoom AND any Shift+middle pan offset).
       this._follow.obj.getWorldPosition(this._tmp);
-      this._delta.subVectors(this._tmp, this.controls.target);
+      if (!this._lastFollowPos) this._lastFollowPos = this._tmp.clone();
+      this._delta.subVectors(this._tmp, this._lastFollowPos);
       this.camera.position.add(this._delta);
-      this.controls.target.copy(this._tmp);
+      this.controls.target.add(this._delta);
+      this._lastFollowPos.copy(this._tmp);
     }
   }
 }
