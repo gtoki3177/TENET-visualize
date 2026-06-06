@@ -42,7 +42,7 @@ export function buildLandmarks(root) {
   const extWallMat   = track(new THREE.MeshStandardMaterial({ color: COL.concrete,    roughness: 0.92 }), surfaceMats);
   const midWallMat   = track(new THREE.MeshStandardMaterial({ color: COL.wallInner,   roughness: 0.88 }), surfaceMats);
   const innWallMat   = track(new THREE.MeshStandardMaterial({ color: COL.wall,        roughness: 0.85 }), surfaceMats);
-  const partMat      = track(new THREE.MeshStandardMaterial({ color: COL.concreteDark, roughness: 0.8 }), surfaceMats);
+  const partMat      = track(new THREE.MeshStandardMaterial({ color: COL.glass, roughness: 0.08, metalness: 0, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false }), surfaceMats);  // the proving-window GLASS wall
   const floorOutMat  = track(new THREE.MeshStandardMaterial({ color: COL.floor,       roughness: 0.7,  metalness: 0.05, side: THREE.DoubleSide }), surfaceMats);
   const floorMidMat  = track(new THREE.MeshStandardMaterial({ color: 0x8a9098,        roughness: 0.6,  metalness: 0.05, side: THREE.DoubleSide }), surfaceMats);
   const floorInMat   = track(new THREE.MeshStandardMaterial({ color: 0x676c72,        roughness: 0.45, metalness: 0.1,  side: THREE.DoubleSide }), surfaceMats);
@@ -151,30 +151,30 @@ export function buildLandmarks(root) {
   const partLen = HEX.partS - HEX.partN;          // from between cylinders to the south edge
   const partCz = (HEX.partN + HEX.partS) / 2;
   const partH = HEX.wallH - 4;
-  const partWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, partH, partLen), partMat);
+  const partWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, partH, partLen), partMat);  // glass wall
   partWall.position.set(0, partH / 2, partCz);
-  partWall.castShadow = true;
   tag(partWall, 'partition');
   partGroup.add(partWall);
-  // glazed upper strip — the "proving window"
-  const partGlass = new THREE.Mesh(new THREE.BoxGeometry(0.4, 6, partLen - 3),
-    track(new THREE.MeshStandardMaterial({ color: COL.glass, roughness: 0.05, transparent: true, opacity: 0.28, side: THREE.DoubleSide }), surfaceMats));
-  partGlass.position.set(0, partH - 2, partCz);
-  tag(partGlass, 'partition_glass');
-  partGroup.add(partGlass);
-  glassPanels.push(partGlass);
-  // Four bullet holes in the glass (dark discs, both faces).
+  glassPanels.push(partWall);
+  // Four bullet holes in the glass (dark disc + crack ring, both faces). Each hole is its own
+  // group so world.update can pop it in / repair it over time. Order = inner→outer (z asc).
   const holeMat = track(new THREE.MeshStandardMaterial({ color: 0x0c0e10, roughness: 0.95 }), surfaceMats);
   const holeRing = track(new THREE.MeshStandardMaterial({ color: 0x9fb6c4, roughness: 0.4, transparent: true, opacity: 0.5, side: THREE.DoubleSide }), surfaceMats);
+  const bulletHoles = [];
   for (const [hy, hz] of [[partH - 0.6, partCz - 8], [partH - 3, partCz - 2.5], [partH - 1.8, partCz + 4], [partH - 3.4, partCz + 9]]) {
+    const hg = new THREE.Group();
+    hg.position.set(0, hy, hz);
     for (const sx of [0.26, -0.26]) {
       const hole = new THREE.Mesh(new THREE.CircleGeometry(0.55, 14), holeMat);
-      hole.position.set(sx, hy, hz); hole.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
-      partGroup.add(hole);
+      hole.position.set(sx, 0, 0); hole.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      hg.add(hole);
       const crack = new THREE.Mesh(new THREE.RingGeometry(0.55, 1.1, 14), holeRing);
-      crack.position.set(sx * 0.9, hy, hz); crack.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
-      partGroup.add(crack);
+      crack.position.set(sx * 0.9, 0, 0); crack.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      hg.add(crack);
     }
+    hg.scale.setScalar(0.001); hg.visible = false;   // hidden until its appear beat
+    partGroup.add(hg);
+    bulletHoles.push(hg);
   }
 
   // ============================================================
@@ -401,6 +401,6 @@ export function buildLandmarks(root) {
     surfaceMats, glassPanels, editables,
     turnstileGroup, turnstile: { red: redCyl, blue: blueCyl },
     partGroup, innerGroup, midGroup, outerGroup,
-    planeGroup, vanGroup, propsGroup, rollEast, rollWest,
+    planeGroup, vanGroup, propsGroup, rollEast, rollWest, bulletHoles,
   };
 }

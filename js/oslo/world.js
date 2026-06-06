@@ -297,6 +297,23 @@ export function buildWorld(scene) {
       landmarks.turnstile.red.rotation.y = -ang;    // CW out, CCW back
     }
 
+    // Bullet holes on the proving-window glass: 4 appear inner→outer over 0:22–0:31, then
+    // repair (un-shoot) inner→outer over 1:06–1:15. Each pops/shrinks over a short ramp.
+    if (landmarks.bulletHoles) {
+      const APP = [22, 25, 28, 31], REP = [66, 69, 72, 75], RAMP = 0.6;   // seconds
+      landmarks.bulletHoles.forEach((h, i) => {
+        const a = APP[i] / 180, r = REP[i] / 180, ramp = RAMP / 180;
+        let s;
+        if (t < a) s = 0;
+        else if (t < a + ramp) s = (t - a) / ramp;          // pop in
+        else if (t < r) s = 1;
+        else if (t < r + ramp) s = 1 - (t - r) / ramp;       // repair (shrink away)
+        else s = 0;
+        h.visible = s > 0.001;
+        h.scale.setScalar(Math.max(0.001, s));
+      });
+    }
+
     // Fire grows with time
     const fireAmt = clamp01(t / 0.15);
     const fArr = fire.geometry.attributes.position.array;
