@@ -232,7 +232,12 @@ function snapT(tt) {
   const times = snapTimes(); if (!times.length) return tt;
   let best = times[0];
   for (const x of times) if (Math.abs(x - tt) < Math.abs(best - tt)) best = x;
-  return best;
+  // Catch radius = a quarter of the spacing to the nearest neighbour key (half the old
+  // nearest-wins zone), so it only snaps when the cursor is fairly close to a keyframe.
+  let gap = Infinity;
+  for (const x of times) if (x !== best) gap = Math.min(gap, Math.abs(x - best));
+  const radius = isFinite(gap) ? gap * 0.25 : 0.04;
+  return Math.abs(tt - best) <= radius ? best : tt;
 }
 const scrubT = (e) => { const tt = trackToT(e.clientX); return e.shiftKey ? snapT(tt) : tt; };
 function syncSubjFromGlobal() {
