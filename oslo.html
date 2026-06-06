@@ -80,6 +80,12 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
   .ed-vbtns { display: flex; gap: 6px; margin-top: 4px; }
   .ed-vbtns button { flex: 1; font: inherit; font-size: 10px; padding: 5px 0; cursor: pointer;
     border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink2); }
+  .ed-vbtns button:disabled { opacity: 0.4; cursor: default; }
+  .ed-vkeys { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .ed-vchip { font-family: 'JetBrains Mono', monospace; font-size: 9px; padding: 2px 5px;
+    border-radius: 3px; cursor: pointer; border: 1px solid var(--line); }
+  .ed-vchip.on { background: #e6f5ec; border-color: #57b377; color: #2f7d4c; }
+  .ed-vchip.off { background: #fbe9ee; border-color: #d68aa0; color: #b03a57; }
   .ed-terrain { margin-top: 10px; border-top: 1px solid var(--line2); padding-top: 9px; }
   .ed-tlabel { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
     letter-spacing: 0.16em; color: var(--ink3); margin-bottom: 7px; }
@@ -208,6 +214,12 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
     transform: translate(-50%, -50%) rotate(45deg); background: #fff;
     border: 1.5px solid var(--ink2); padding: 0; cursor: pointer; }
   .marker:hover { border-color: var(--ink); background: var(--ink); }
+  /* visibility keyframes: round markers sitting just below the track */
+  .vis-marker { width: 8px; height: 8px; border-radius: 50%;
+    transform: translate(-50%, 11px) rotate(0); }
+  .vis-marker.on { background: #46b36b; border-color: #2f8f50; }
+  .vis-marker.off { background: #fff; border-color: #cf6f88; }
+  .vis-marker:hover { border-color: var(--ink); background: var(--ink); }
   .tl-scale { display: flex; justify-content: space-between; margin-top: 7px;
     font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink3); letter-spacing: 0.06em; }
 

@@ -34,12 +34,12 @@ function save(d) { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
 // current clock t → a keyframe on that actor's track). Persists to localStorage, applied
 // on load. Export/Import JSON, Reset, Ctrl/Cmd+Z undo, orbit recentres on selection.
 export class Editor {
-  constructor({ scene, camera, renderer, controls, editables, actorsApi, getTime, onEnter, onSelectionChange, terrainParams, terrainDefaults, rebuildTerrain, namespace }) {
+  constructor({ scene, camera, renderer, controls, editables, actorsApi, getTime, onEnter, onSelectionChange, onSeek, terrainParams, terrainDefaults, rebuildTerrain, namespace }) {
     if (namespace) { STORE_KEY = STORE_BASE + '_' + namespace; SLOTS_KEY = SLOTS_BASE + '_' + namespace; }
     this.scene = scene; this.camera = camera; this.renderer = renderer;
     this.controls = controls; this.editables = editables;
     this.actorsApi = actorsApi || null; this.getTime = getTime || (() => 0);
-    this.onEnter = onEnter; this.onSelectionChange = onSelectionChange;
+    this.onEnter = onEnter; this.onSelectionChange = onSelectionChange; this.onSeek = onSeek || null;
     this.terrainParams = terrainParams || null; this.terrainDefaults = terrainDefaults || {}; this.rebuildTerrain = rebuildTerrain || null;
     this.active = false; this.selected = null;
     this.store = load();
@@ -385,8 +385,10 @@ export class Editor {
   }
   pushVisUndo(name) {
     if (this._suppressUndo) return;
-    const v = this.actorsApi.vis[name];
-    this.undoStack.push({ type: 'vis', name, dirtyBefore: name in this.store.visibility, data: v ? v.map(iv => [...iv]) : null });
+    const api = this.actorsApi;
+    const data = api.serializeVisTrack ? api.serializeVisTrack(name)
+               : (api.vis[name] ? api.vis[name].map(iv => [...iv]) : null);
+    this.undoStack.push({ type: 'vis', name, dirtyBefore: name in this.store.visibility, data });
     this._trim();
   }
 
@@ -472,8 +474,9 @@ export class Editor {
       </div>
       <input type="file" id="ed-file" accept="application/json,.json" style="display:none">
       <div class="ed-help">
-        <b>Landmarks</b> click → gizmo (Move/Rotate/Scale). <b>Characters</b> scrub the time, drag = keyframe.
-        Numbers <b>drag to scrub</b>. Hover highlights. <b>←/→</b> jump beats/keyframes. <b>Ctrl+Z</b> undo. Auto-saves.
+        <b>Landmarks</b> click → gizmo (Move/Rotate/Scale). <b>Characters</b> scrub the time, drag = keyframe;
+        Show/Hide-from-t keys the appear/disappear. Numbers <b>drag to scrub</b>. <b>←/→</b> step ·
+        <b>Shift+←/→</b> jump keyframe. <b>Ctrl+Z</b> undo. Auto-saves.
       </div>`;
     document.body.appendChild(wrap);
     this.panel = wrap;
@@ -517,7 +520,9 @@ export class Editor {
   buildVisUI() {
     const host = this.panel.querySelector('#ed-vis'), o = this.selected;
     if (!this.isActor(o) || !this.actorsApi) { host.innerHTML = ''; return; }
-    const name = o.userData.trackName, iv = this.actorsApi.vis[name];
+    const name = o.userData.trackName;
+    if (this.actorsApi.visMode === 'keys') { this.buildVisKeysUI(host, name); return; }
+    const iv = this.actorsApi.vis[name];
     let html = `<div class="ed-vlabel">Visible (t)${iv ? '' : ': <b>always</b>'}</div>`;
     if (iv) iv.forEach((seg, i) => {
       html += `<div class="ed-vrow"><input class="ed-vin" data-i="${i}" data-k="0" value="${seg[0]}"><span>–</span>` +
@@ -532,6 +537,41 @@ export class Editor {
     host.querySelectorAll('.ed-vdel').forEach(b => b.addEventListener('click', () => this.removeVisInterval(+b.dataset.i)));
     const addB = host.querySelector('[data-vact="add"]'); if (addB) addB.addEventListener('click', () => this.addVisInterval());
     const alwB = host.querySelector('[data-vact="always"]'); if (alwB) alwB.addEventListener('click', () => this.toggleAlways());
+  }
+  // visibility as on/off step keyframes (visMode === 'keys')
+  buildVisKeysUI(host, name) {
+    const api = this.actorsApi, keys = api.visKeyList(name), t = this.getTime();
+    const here = api.hasVisKey(name, t), fmt = (x) => (Math.round(x * 1000) / 1000).toString();
+    let html = `<div class="ed-vlabel">Visibility · ${keys.length} key${keys.length === 1 ? '' : 's'} · now <b id="ed-vnow">${api.visAt(name, t) ? 'shown' : 'hidden'}</b></div>`;
+    if (keys.length) html += '<div class="ed-vkeys">' + keys.map(k =>
+      `<span class="ed-vchip ${k.on ? 'on' : 'off'}" data-t="${k.t}" title="click to seek">${fmt(k.t)} · ${k.on ? 'show' : 'hide'}</span>`).join('') + '</div>';
+    html += `<div class="ed-vbtns">` +
+      `<button data-vk="show">👁 Show from t</button>` +
+      `<button data-vk="hide">⦸ Hide from t</button>` +
+      `<button data-vk="del" id="ed-vkdel"${here ? '' : ' disabled'}>✕ key@t</button></div>`;
+    host.innerHTML = html;
+    host.querySelectorAll('.ed-vchip').forEach(c => c.addEventListener('click', () => { if (this.onSeek) this.onSeek(parseFloat(c.dataset.t)); }));
+    host.querySelector('[data-vk="show"]').addEventListener('click', () => this.visSetHere(true));
+    host.querySelector('[data-vk="hide"]').addEventListener('click', () => this.visSetHere(false));
+    const db = host.querySelector('[data-vk="del"]'); if (db) db.addEventListener('click', () => this.visDeleteHere());
+  }
+  visSetHere(on) {
+    const o = this.selected; if (!this.isActor(o)) return;
+    const name = o.userData.trackName;
+    this.pushVisUndo(name);
+    this.actorsApi.setVisKey(name, round(this.getTime()), on);
+    this.store.visibility[name] = this.actorsApi.serializeVisTrack(name);
+    save(this.store); this.buildVisUI(); this.notifySelection();
+  }
+  visDeleteHere() {
+    const o = this.selected; if (!this.isActor(o)) return;
+    const name = o.userData.trackName;
+    this.pushVisUndo(name);
+    if (this.actorsApi.deleteVisKey(name, this.getTime())) {
+      const ser = this.actorsApi.serializeVisTrack(name);
+      if (ser.length) this.store.visibility[name] = ser; else delete this.store.visibility[name];
+      save(this.store); this.buildVisUI(); this.notifySelection();
+    } else this.undoStack.pop();
   }
   buildTerrainUI() {
     const host = this.panel.querySelector('#ed-terrain');
@@ -574,5 +614,11 @@ export class Editor {
       `track <b>${name}</b> · ${this.actorsApi.count(name)} keys<br>clock t = ${t.toFixed(3)} · ${here ? 'keyframe HERE' : 'no keyframe here'}`;
     const del = this.panel.querySelector('#ed-delkey');
     del.disabled = !here; del.style.opacity = here ? 1 : 0.4;
+    if (this.actorsApi.visMode === 'keys') {
+      const vnow = this.panel.querySelector('#ed-vnow');
+      if (vnow) vnow.textContent = this.actorsApi.visAt(name, t) ? 'shown' : 'hidden';
+      const vdel = this.panel.querySelector('#ed-vkdel');
+      if (vdel) vdel.disabled = !this.actorsApi.hasVisKey(name, t);
+    }
   }
 }

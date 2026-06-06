@@ -11,6 +11,17 @@ function kf(frames, t, out) {
 }
 const up = (x, y, z) => new THREE.Vector3(x, y, z);
 
+// Resolve a boolean visibility keyframe track at time t. Empty ⇒ visible. A key {t,on} sets
+// the state from t onward (step-hold); BEFORE the first key the state is the inverse of that
+// first key, so a lone key reads as "appears at t" (on) / "disappears at t" (off).
+function visAt(keys, t) {
+  if (!keys || keys.length === 0) return true;
+  if (t < keys[0].t) return !keys[0].on;
+  let on = keys[0].on;
+  for (let i = 0; i < keys.length; i++) { if (keys[i].t <= t) on = keys[i].on; else break; }
+  return on;
+}
+
 function makeUnit(color, scale = 1) {
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05 });
@@ -53,8 +64,6 @@ export function buildEntities(scene, world) {
   const tp2fFrames   = [{ t: 0, p: P(D.redCyl) }];
   const tp2iFrames   = [{ t: 0, p: P(D.blueCyl) }];
 
-  const VIS = {};   // all actors visible at all times (user controls via keyframes/editing)
-
   const followables = {
     tp:     { obj: tp,     offset: up(22, 32, 36),   name: 'TP (past)' },
     neil:   { obj: neil,   offset: up(16, 30, 30),   name: 'Neil (past)' },
@@ -80,10 +89,17 @@ export function buildEntities(scene, world) {
   const baseTracks = {};
   for (const k in editTracks) baseTracks[k] = serTrack(editTracks[k]);
 
+  // Visibility keyframe tracks (boolean step keys). Empty ⇒ always visible; user keys these.
+  const visTracks = {}; for (const a of editActors) visTracks[a.name] = [];
+  const baseVisTracks = {}; for (const k in visTracks) baseVisTracks[k] = [];
+  const serVis = (keys) => keys.map(k => [r3(k.t), k.on ? 1 : 0]);
+
   const FREEZE = new Set();
   const edit = {
-    freeze: FREEZE, actors: editActors, tracks: editTracks, baseTracks, vis: {}, baseVis: {},
-    setVisibility() {}, applyVis() {}, resetVis() {},
+    freeze: FREEZE, visMode: 'keys', actors: editActors, tracks: editTracks, baseTracks,
+    vis: visTracks, visTracks,
+    setVisibility() {},   // legacy interval API no-op
+    // ── position keyframes ──
     count(name) { const f = editTracks[name]; return f ? f.length : 0; },
     hasKeyframe(name, t, eps = 0.004) { const f = editTracks[name]; return !!f && f.some(k => Math.abs(k.t - t) < eps); },
     setKeyframe(name, t, pos, eps = 0.004) {
@@ -104,13 +120,37 @@ export function buildEntities(scene, world) {
       f.length = 0; for (const [t, x, y, z] of data) f.push({ t, p: new THREE.Vector3(x, y, z) });
     },
     resetTrack(name) { this.applyTrack(name, baseTracks[name]); },
+    // ── visibility keyframes (appear/disappear) ──
+    visAt(name, t) { return visAt(visTracks[name], t); },
+    visKeyList(name) { return visTracks[name] || []; },
+    countVis(name) { const f = visTracks[name]; return f ? f.length : 0; },
+    hasVisKey(name, t, eps = 0.004) { const f = visTracks[name]; return !!f && f.some(k => Math.abs(k.t - t) < eps); },
+    setVisKey(name, t, on, eps = 0.004) {
+      const f = visTracks[name]; if (!f) return;
+      const i = f.findIndex(k => Math.abs(k.t - t) < eps);
+      if (i >= 0) f[i].on = on;
+      else { const nf = { t, on }; const j = f.findIndex(k => k.t > t); if (j < 0) f.push(nf); else f.splice(j, 0, nf); }
+    },
+    toggleVisKey(name, t, eps = 0.004) { this.setVisKey(name, t, !visAt(visTracks[name], t - 1e-5), eps); },
+    deleteVisKey(name, t, eps = 0.004) {
+      const f = visTracks[name]; if (!f) return false;
+      const i = f.findIndex(k => Math.abs(k.t - t) < eps);
+      if (i >= 0) { f.splice(i, 1); return true; } return false;
+    },
+    serializeVisTrack(name) { return serVis(visTracks[name] || []); },
+    serializeVis() { const o = {}; for (const k in visTracks) if (visTracks[k].length) o[k] = serVis(visTracks[k]); return o; },
+    applyVis(name, data) {
+      const f = visTracks[name]; if (!f) return;
+      f.length = 0;
+      if (Array.isArray(data)) for (const [t, on] of data) f.push({ t, on: !!on });
+    },
+    resetVis(name) { this.applyVis(name, baseVisTracks[name]); },
   };
 
   function update(t, dt) {
     for (const a of editActors) {
       if (!FREEZE.has(a.name)) kf(editTracks[a.name], t, a.obj.position);
-      const v = VIS[a.name];
-      a.obj.visible = !v || (t >= v[0] && t <= v[1]);
+      a.obj.visible = visAt(visTracks[a.name], t);
     }
   }
 

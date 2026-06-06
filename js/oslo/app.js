@@ -179,7 +179,7 @@ for (const ev of EVENTS) {
 let editActorName = null;
 function refreshTimelineMarkers(actorName) {
   editActorName = actorName;
-  elTrack.querySelectorAll('.kf-marker').forEach(m => m.remove());
+  elTrack.querySelectorAll('.kf-marker, .vis-marker').forEach(m => m.remove());
   const showEvents = !actorName;
   elTrack.querySelectorAll('.ev-marker').forEach(m => { m.style.display = showEvents ? '' : 'none'; });
   if (!actorName) return;
@@ -191,6 +191,17 @@ function refreshTimelineMarkers(actorName) {
     m.style.left = `${(f.t - T_MIN) / (T_MAX - T_MIN) * 100}%`;
     m.title = `keyframe @ t=${f.t.toFixed(3)}`;
     m.addEventListener('click', (e) => { e.stopPropagation(); seekTo(f.t); });
+    elTrack.appendChild(m);
+  }
+  // visibility keyframes (appear/disappear) — a second row of round markers below the track
+  const vk = entities.edit.visMode === 'keys' ? (entities.edit.visKeyList(actorName) || []) : [];
+  for (const k of vk) {
+    if (k.t < T_MIN || k.t > T_MAX) continue;
+    const m = document.createElement('button');
+    m.className = 'marker vis-marker ' + (k.on ? 'on' : 'off');
+    m.style.left = `${(k.t - T_MIN) / (T_MAX - T_MIN) * 100}%`;
+    m.title = `visibility: ${k.on ? 'show' : 'hide'} from t=${k.t.toFixed(3)}`;
+    m.addEventListener('click', (e) => { e.stopPropagation(); seekTo(k.t); });
     elTrack.appendChild(m);
   }
 }
@@ -385,6 +396,7 @@ const editor = new Editor({
   actorsApi: entities.edit,
   getTime: () => t,
   onSelectionChange: (actorName) => refreshTimelineMarkers(actorName),
+  onSeek: (target) => seekTo(target),
   onEnter: (on) => { if (on) { pause(); selectView('god'); } },
 });
 const editBtn = document.getElementById('edit-btn');
