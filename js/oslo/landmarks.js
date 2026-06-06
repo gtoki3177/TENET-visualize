@@ -188,15 +188,13 @@ export function buildLandmarks(root) {
     const g = new THREE.Group();
     g.position.set(p.x, 0, p.y);
     g.rotation.y = -ang;
-    const w = door.w - 0.4, openH = 4.5, slatN = 9;
-    const totalH = HEX.wallH - openH - 1, slatH = totalH / slatN;
+    const w = door.w - 0.4, slatN = 12;        // reaches the ground; thinner panel
+    const totalH = HEX.wallH - 0.3, slatH = totalH / slatN;
     for (let i = 0; i < slatN; i++) {
-      const slat = new THREE.Mesh(new THREE.BoxGeometry(w, slatH * 0.9, 1.4), shutterMat);
-      slat.position.set(0, openH + slatH / 2 + i * slatH, 0);
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(w, slatH * 0.9, 0.5), shutterMat);
+      slat.position.set(0, slatH / 2 + i * slatH, 0);
       slat.castShadow = true; g.add(slat);
     }
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(w, 0.8, 1.6), shutterRail);
-    bar.position.set(0, openH, 0); g.add(bar);
     tag(g, id); root.add(g);
     return g;
   }
@@ -235,9 +233,9 @@ export function buildLandmarks(root) {
   function turnstileShell(x, faceEast, color, edgeColor) {
     const g = new THREE.Group();
     g.position.set(x, 0, cz);
-    // CylinderGeometry vertex: x=r·sin(θ), z=r·cos(θ) → +x (east)=θ=π/2, −x (west)=θ=−π/2.
-    // Opening faces OUTWARD at rest: red→east, blue→west.
-    const gap = faceEast ? Math.PI / 2 : -Math.PI / 2;
+    // CylinderGeometry vertex: x=r·sin(θ), z=r·cos(θ) → +z (SOUTH)=θ=0. Both openings face
+    // SOUTH at rest; world.update winds them to north (blue CCW / red CW) and back.
+    const gap = 0;
     const mat = track(new THREE.MeshStandardMaterial({ color, roughness: 0.25, metalness: 0.2, side: THREE.DoubleSide }), surfaceMats);
     const shell = new THREE.Mesh(
       new THREE.CylinderGeometry(cylR, cylR, cylH, 40, 1, true, gap + openA / 2, Math.PI * 2 - openA), mat);
@@ -286,7 +284,7 @@ export function buildLandmarks(root) {
   const planeGroup = new THREE.Group();
   tag(planeGroup, '747_crash');
   planeGroup.position.set(POS.plane.x, 0, POS.plane.z);
-  planeGroup.rotation.y = -Math.PI / 2 + 0.3;  // nose toward the freeport (+z), skidded in askew
+  planeGroup.rotation.y = 0;   // fuselage E-W (along x), parallel to and in front of the north wall
   root.add(planeGroup);
 
   const fuselageMat = track(new THREE.MeshStandardMaterial({ color: COL.plane, roughness: 0.5, metalness: 0.12 }), surfaceMats);
@@ -353,8 +351,8 @@ export function buildLandmarks(root) {
   }
 
   const jet = build747();
-  jet.position.y = 7;                 // belly off the ground
-  jet.rotation.z = -0.05;             // slight bank, as if it skidded in
+  jet.scale.set(2, 2, 2);            // 2× size
+  jet.position.y = 12;               // belly near the ground at 2× scale
   planeGroup.add(jet);
 
   // A little scattered debris near the wreck.

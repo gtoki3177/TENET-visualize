@@ -254,7 +254,7 @@ RINGS.mid[1] = [RINGS.mid[1][0], _topZ];   // mid TR → onto outer top edge
   const segW = Math.max(10, (xoR - xmR) - 3);
   // [0]=west rolling door, [1]=east rolling door, [2]=junction door at the RIGHT merge
   // point (mid↔outer edge-1; just an opening, no shutter — red Neil 2 exits here).
-  const connAt = atOf(xmR - 2);   // just inboard of the right (east) merge corner
+  const connAt = atOf(xmR - 8);   // a bit left of the right merge corner, clear of the wall
   HEX.outerDoors[0] = [ { at: atOf(segCw), w: segW }, { at: atOf(segCe), w: segW }, { at: connAt, w: 9 } ];
   HEX._connAt = connAt;
 }
@@ -277,12 +277,12 @@ export const DOORS = {
 export const POS = {
   bldgCenter: { x: 0, z: 0 },
 
-  // Crash site — the 747 explodes OUTSIDE, north of the east rolling door (it does not
-  // breach the wall). Fire/smoke sit outside; the plane wreck is further north.
-  exterior:   { x: 0,              z: DOORS.rollE.z - 85 },
-  crashWall:  { x: DOORS.rollE.x,  z: DOORS.rollE.z },
-  crashHole:  { x: DOORS.rollE.x,  z: DOORS.rollE.z - 18 },   // explosion outside the wall
-  plane:      { x: DOORS.rollE.x + 3, z: DOORS.rollE.z - 50 },
+  // The 747 (2×) is parked PARALLEL to and just in front of the north wall (edge 1), with
+  // a south-wing engine aimed at the east rolling door.
+  exterior:   { x: 0,   z: -150 },
+  crashWall:  { x: DOORS.rollE.x, z: DOORS.rollE.z },
+  crashHole:  { x: 39,  z: -58 },     // fire at the engine / right rolling door
+  plane:      { x: 37,  z: -96 },     // parked north of the wall, parallel
 
   // Turnstile room core
   provingWin: { x: 0, z: (HEX.partN + HEX.partS) / 2 },
