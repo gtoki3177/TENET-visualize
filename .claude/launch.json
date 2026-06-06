@@ -4,7 +4,7 @@
     {
       "name": "stalsk12",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8170"],
+      "runtimeArgs": ["serve.py", "8170"],
       "port": 8170
     }
   ]
