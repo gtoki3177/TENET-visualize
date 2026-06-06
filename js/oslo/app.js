@@ -78,11 +78,13 @@ controls.target.set(0, 8, -5);
 // view leave the god-orbit centre / a followed character.
 controls.enablePan = true;
 controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
-// Decide middle-button action from the modifier held AT click time (capture phase, before
-// OrbitControls reads mouseButtons) — works even inside the index iframe, where a Shift
-// keydown wouldn't reach this document unless it had keyboard focus.
-renderer.domElement.addEventListener('pointerdown', (e) => {
-  if (e.button === 1) controls.mouseButtons.MIDDLE = e.shiftKey ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+// Decide middle-button action from Shift held AT click time. Listen on WINDOW in the
+// capture phase so this runs BEFORE OrbitControls' own canvas pointerdown handler (which
+// reads mouseButtons) — at the target element, listeners fire in registration order, so a
+// canvas listener would run too late. e.shiftKey is focus-independent (works in the iframe).
+window.addEventListener('pointerdown', (e) => {
+  if (e.button === 1 && e.target === renderer.domElement)
+    controls.mouseButtons.MIDDLE = e.shiftKey ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
 }, true);
 renderer.domElement.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });  // no middle-click autoscroll
 
