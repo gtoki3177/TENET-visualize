@@ -77,21 +77,13 @@ controls.minDistance = 18;
 controls.maxDistance = 1800;
 controls.target.set(170, 0, -40);
 
-// Blender-style navigation: MIDDLE = orbit, SHIFT+MIDDLE = pan, wheel = zoom; left button
-// freed for selection. Pan lets the view leave the god-orbit centre / a followed character.
+// Blender-style navigation: MIDDLE = orbit, wheel = zoom, left freed for selection.
+// SHIFT+MIDDLE pans via OrbitControls' OWN built-in shift handling (it swaps a rotate-button
+// to pan when shiftKey is held), reading the modifier off the mouse event — so it works
+// inside iframes / embedded previews with no keyboard listener needed.
 controls.enablePan = true;
 controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
-// Shift switches the middle button to PAN. Set it on Shift keydown/keyup (BEFORE any click,
-// so OrbitControls reads the right value at pointerdown regardless of listener order).
-// Attach to this window AND the top/parent window so it fires whether the scene iframe or
-// the index shell has keyboard focus.
-const _setMid = (pan) => { controls.mouseButtons.MIDDLE = pan ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE; };
-const _onShift = (e) => { if (e.key === 'Shift') _setMid(e.type === 'keydown'); };
-const _wins = new Set([window]);
-try { if (window.top) _wins.add(window.top); } catch (_) {}
-try { if (window.parent) _wins.add(window.parent); } catch (_) {}
-for (const w of _wins) { w.addEventListener('keydown', _onShift); w.addEventListener('keyup', _onShift); }
-renderer.domElement.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+renderer.domElement.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });  // no middle-click autoscroll
 
 // ---------- Build world + entities ----------
 const world = buildWorld(scene);
