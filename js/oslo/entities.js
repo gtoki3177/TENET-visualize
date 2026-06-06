@@ -52,17 +52,17 @@ export function buildEntities(scene, world) {
   const tp2i   = makeUnit(COL.inverted, 1.15); root.add(tp2i);
   const neil2i = makeUnit(COL.inverted, 1.0);  root.add(neil2i);
 
-  // ── Keyframes CLEARED — the user keys these in the editor. ──────────────
-  // Each actor keeps ONE starting keyframe (so its track is valid + selectable); all are
-  // visible at all times. Spread to distinct spots so they don't overlap on load.
-  const D = DOORS;
-  const P = (d, dz = 0, dx = 0) => up(d.x + dx, 0, d.z + dz);
-  const tpFrames     = [{ t: 0, p: P(D.outR) }];
-  const neilFrames   = [{ t: 0, p: P(D.outR, 6) }];
-  const neil2fFrames = [{ t: 0, p: P(D.redCyl, 0, 3) }];
-  const neil2iFrames = [{ t: 0, p: P(D.blueCyl, 0, -3) }];
-  const tp2fFrames   = [{ t: 0, p: P(D.redCyl) }];
-  const tp2iFrames   = [{ t: 0, p: P(D.blueCyl) }];
+  // ── Choreography BAKED from the editor (2026-06-07). Each row is [t, x, y, z]; edit
+  // further in EDIT mode and re-bake. Visibility keys are baked further down (BAKED_VIS). ──
+  const mkF = (arr) => arr.map(([t, x, y, z]) => ({ t, p: up(x, y, z) }));
+  const BAKED = {
+    tp: [[0,89.16,0,18.52],[0.024,38.196,0,-14.013],[0.117,37.946,0,-13.741],[0.134,28.924,0,-8.91],[0.174,27.624,0,0.618],[0.199,12.838,0,14.007],[0.223,-4.484,0,13.84],[0.237,-4.237,0,14.022],[0.294,-6.273,0,-16.337],[0.34,-5.782,0,-13.103],[0.348,-3.185,0,-17.784],[0.364,-3.65,0,-17.322],[0.415,-3.114,0,-1.273],[0.427,-3.126,0,-1.569],[0.431,-3.114,0,-1.273],[0.437,-3.894,0,-2.945],[0.442,-7.443,0,1.998],[0.463,-7.443,0,15.474],[0.504,-4.953,0,15.782],[0.513,4.617,0,15.783],[0.527,4.241,0,16.247],[0.532,2.431,0,16.918],[0.549,2.33,0,15.38],[0.558,7.797,0,16.402],[0.588,27.329,0,2.704],[0.62,13.953,0,13.329],[0.631,21.105,0,7.553],[0.649,32.494,0,-7.345],[0.664,27.499,0,-9.146],[0.694,60.639,0,-14.269],[0.719,67.77,0,-16.426],[0.736,34.707,0,-24.212]],
+    neil: [[0,89.16,0,24.52],[0.024,40.648,0,-4.967],[0.117,40.506,0,-5.099],[0.134,29.84,0,-1.779],[0.174,32.886,0,-1.745],[0.204,17.253,0,10.995],[0.223,4.135,0,14.518],[0.237,4.389,0,14.537],[0.294,6.314,0,-16.516],[0.333,6.464,0,-16.507],[0.342,4.544,0,-15.2],[0.359,3.813,0,10.172],[0.363,4.095,0,15.429],[0.372,-8.456,0,14.274],[0.386,-25.907,0,3.739],[0.391,-30.362,0,-1.281],[0.405,-18.859,0,-38.492],[0.413,-16.942,0,-46.031]],
+    tp2f: [[0,8,0,-28],[0.314,7.699,0,-28.018],[0.334,7.699,0,-28.018],[0.339,11.267,0,-16.169],[0.359,2.544,0,16.441],[0.371,-14.92,0,14.666],[0.387,-31.052,0,-1.587],[0.406,-15.672,0,-46.274],[0.417,-6.889,0,-46.084],[0.449,-6.18,0,-45.938],[0.479,16.444,0,-45.928],[0.516,29.101,0,-5.246],[0.53,41.768,0,-8.99],[0.583,24.06,0,-67.565],[0.687,94.215,0,-151.634],[0.7,94.215,0,-151.634],[0.714,100.414,0,-163.14]],
+    neil2f: [[0,7.571,0,-28],[0.045,7.804,0,-26.299],[0.078,4.375,0,14.881],[0.088,14.55,0,13.648],[0.099,30.454,0,-1.362],[0.126,10.105,0,-59.878],[0.161,8.937,0,-60.319],[0.171,4.113,0,-58.549],[0.7,4.113,0,-58.549],[0.831,116.92,0,-140.464],[0.846,109.789,0,-153.522]],
+    tp2i: [[0,-8,0,-28],[0.314,-7.849,0,-27.991],[0.334,-7.698,0,-27.982],[0.34,-5.98,0,-17.456],[0.348,-6.718,0,-17.757],[0.366,-8.74,0,-17.108],[0.415,-10.052,0,-1.308],[0.428,-10.041,0,-1.549],[0.437,-3.897,0,3.759],[0.441,-1.829,0,2.112],[0.463,-1.829,0,15.709],[0.504,1.288,0,15.709],[0.527,0.49,0,15.686],[0.534,4.413,0,13.056],[0.549,8.021,0,15.726],[0.558,11.422,0,13.883],[0.589,32.291,0,-2.181],[0.62,19.82,0,7.845],[0.631,25.274,0,3.482],[0.649,26.797,0,-6.715],[0.664,27.257,0,-4.532],[0.694,54.187,0,-12.173],[0.719,61.651,0,-14.953],[0.736,31.886,0,-31.889]],
+    neil2i: [[0,-7.854,0,-28],[0.046,-7.783,0,-27.911],[0.12,-4.031,0,14.593],[0.135,-16.87,0,11.657],[0.161,-30.594,0,-1.853],[0.193,-15.268,0,-45.172],[0.233,17.312,0,-45.769],[0.293,29.741,0,-6.78],[0.308,41.382,0,-9.779],[0.351,26.162,0,-62.592],[0.376,50.652,0,-68.937]],
+  };
 
   const followables = {
     tp:     { obj: tp,     offset: up(22, 32, 36),   name: 'TP (past)' },
@@ -83,15 +83,16 @@ export function buildEntities(scene, world) {
   ];
   for (const a of editActors) { a.obj.userData.editId = a.id; a.obj.userData.editKind = 'actor'; a.obj.userData.trackName = a.name; }
 
-  const editTracks = { tp: tpFrames, neil: neilFrames, tp2f: tp2fFrames, neil2f: neil2fFrames, tp2i: tp2iFrames, neil2i: neil2iFrames };
+  const editTracks = { tp: mkF(BAKED.tp), neil: mkF(BAKED.neil), tp2f: mkF(BAKED.tp2f), neil2f: mkF(BAKED.neil2f), tp2i: mkF(BAKED.tp2i), neil2i: mkF(BAKED.neil2i) };
   const r3 = (v) => Math.round(v * 1000) / 1000;
   const serTrack = (frames) => frames.map(f => [r3(f.t), r3(f.p.x), r3(f.p.y), r3(f.p.z)]);
   const baseTracks = {};
   for (const k in editTracks) baseTracks[k] = serTrack(editTracks[k]);
 
-  // Visibility keyframe tracks (boolean step keys). Empty ⇒ always visible; user keys these.
-  const visTracks = {}; for (const a of editActors) visTracks[a.name] = [];
-  const baseVisTracks = {}; for (const k in visTracks) baseVisTracks[k] = [];
+  // Visibility keyframe tracks (boolean step keys). Empty ⇒ always visible. Baked below.
+  const BAKED_VIS = { tp2f: [[0.313,1],[0.714,0]], tp2i: [[0.313,1]], neil2f: [[0.024,1],[0.846,0]], neil2i: [[0.024,1]] };
+  const baseVisTracks = {}; for (const a of editActors) baseVisTracks[a.name] = (BAKED_VIS[a.name] || []).map(([t, on]) => [t, on]);
+  const visTracks = {}; for (const k in baseVisTracks) visTracks[k] = baseVisTracks[k].map(([t, on]) => ({ t, on: !!on }));
   const serVis = (keys) => keys.map(k => [r3(k.t), k.on ? 1 : 0]);
 
   const FREEZE = new Set();

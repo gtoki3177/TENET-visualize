@@ -199,25 +199,6 @@ export function buildWorld(scene) {
   const embers = new THREE.Points(emberGeo, emberMat);
   root.add(embers);
 
-  // ── Glass shatter particles (at Proving Window) ──
-  const N_GLASS = 50;
-  const glassGeo = new THREE.BufferGeometry();
-  const glassPos = new Float32Array(N_GLASS * 3);
-  const glassDirs = [];
-  for (let i = 0; i < N_GLASS; i++) {
-    glassDirs.push(new THREE.Vector3(
-      (Math.random() - 0.5) * 14,
-      Math.random() * 10 + 2,
-      (Math.random() - 0.5) * 18
-    ));
-  }
-  glassGeo.setAttribute('position', new THREE.BufferAttribute(glassPos, 3));
-  const glassMat = new THREE.PointsMaterial({
-    color: COL.glass, size: 1.6, transparent: true, opacity: 0
-  });
-  const glassShatter = new THREE.Points(glassGeo, glassMat);
-  glassShatter.position.set(POS.provingWin.x, 8, POS.provingWin.z);
-  root.add(glassShatter);
 
   // ============================================================
   //  E. CAMERA FRAMINGS
@@ -351,18 +332,6 @@ export function buildWorld(scene) {
     });
     embers.geometry.attributes.position.needsUpdate = true;
     emberMat.opacity = emberAmt * 0.6;
-
-    // Glass shatter (proving window burst at t ≈ 0.45)
-    const shatterT = clamp01((t - 0.42) / 0.08);
-    const shatterFade = 1 - clamp01((t - 0.55) / 0.1);
-    glassMat.opacity = shatterT * shatterFade * 0.8;
-    const gArr = glassShatter.geometry.attributes.position.array;
-    glassDirs.forEach((d, i) => {
-      gArr[i * 3]     = d.x * shatterT;
-      gArr[i * 3 + 1] = d.y * shatterT;
-      gArr[i * 3 + 2] = d.z * shatterT;
-    });
-    glassShatter.geometry.attributes.position.needsUpdate = true;
   }
 
   return {
