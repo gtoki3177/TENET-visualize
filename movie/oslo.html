@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Oslo Freeport · The Turnstile Encounter</title>
+<meta name="description" content="Interactive 3D visualization of the Oslo Freeport scene from TENET — the Protagonist fights his inverted self at the Rotas turnstile." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --red: #e5484d; --reddim: #f0a8aa;
+    --blue: #2f6fed; --bluedim: #a7c0f5;
+    --ink: #1a2129; --ink2: #5a6675; --ink3: #8a96a4;
+    --line: #cdd5de; --line2: #e2e7ed;
+    --panel: rgba(255,255,255,0.78);
+    --bg: #8a9aae;
+    --radius: 4px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg);
+    font-family: 'Space Grotesk', system-ui, sans-serif; color: var(--ink); }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+
+  /* ---------- UI overlay ---------- */
+  .ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  .ui > * { pointer-events: auto; }
+
+  /* Top bar */
+  .topbar { position: absolute; top: 0; left: 0; right: 0; height: 58px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; }
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .brand h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0; }
+  .brand .sub { font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink2); letter-spacing: 0.08em; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .icon-btn { height: 30px; min-width: 30px; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--panel); color: var(--ink2); cursor: pointer; font-size: 12px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em; backdrop-filter: blur(8px); }
+  .xray-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .edit-btn.active { background: #b5651d; color: #fff; border-color: #b5651d; }
+
+  /* ---------- Scene editor ---------- */
+  .editor-panel { position: fixed; top: 120px; right: 20px; width: 236px; z-index: 40;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    backdrop-filter: blur(10px); padding: 11px 12px 12px; display: none;
+    max-height: calc(100vh - 200px); overflow-y: auto; }
+  .editor-panel.on { display: block; }
+  .ed-head { display: flex; align-items: center; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.16em; color: var(--ink3); margin-bottom: 9px; }
+  .ed-x { border: 0; background: transparent; color: var(--ink3); cursor: pointer; font-size: 12px; }
+  .ed-pick { width: 100%; font: inherit; font-size: 11px; padding: 5px 6px; margin-bottom: 8px;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); cursor: pointer; }
+  .ed-sel { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink);
+    background: rgba(0,0,0,0.04); border-radius: 3px; padding: 6px 8px; margin-bottom: 8px; }
+  .ed-actor { display: none; margin-bottom: 8px; }
+  .ed-kf { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink2);
+    line-height: 1.6; margin-bottom: 6px; }
+  .ed-kf b { color: var(--ink); }
+  #ed-delkey { width: 100%; font: inherit; font-size: 11px; padding: 6px 0; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--red); }
+  #ed-delkey:disabled { opacity: 0.4; cursor: default; }
+  .ed-vis { margin-top: 8px; }
+  .ed-vlabel { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink3);
+    letter-spacing: 0.06em; margin-bottom: 5px; }
+  .ed-vlabel b { color: var(--ink2); }
+  .ed-vrow { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+  .ed-vin { width: 52px; font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 5px;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
+  .ed-vrow span { color: var(--ink3); font-size: 11px; }
+  .ed-vdel { margin-left: auto; border: 0; background: transparent; color: var(--ink3); cursor: pointer; font-size: 11px; }
+  .ed-vbtns { display: flex; gap: 6px; margin-top: 4px; }
+  .ed-vbtns button { flex: 1; font: inherit; font-size: 10px; padding: 5px 0; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink2); }
+  .ed-terrain { margin-top: 10px; border-top: 1px solid var(--line2); padding-top: 9px; }
+  .ed-tlabel { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.16em; color: var(--ink3); margin-bottom: 7px; }
+  .ed-thead { cursor: pointer; user-select: none; margin-bottom: 0; }
+  .ed-thead:hover { color: var(--ink2); }
+  .ed-tcat { font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600;
+    letter-spacing: 0.12em; color: var(--ink2); margin: 8px 0 4px; text-transform: uppercase; }
+  .ed-trow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+  .ed-trow label { font-size: 11px; color: var(--ink2); }
+  .ed-tin { width: 60px; font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 5px;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
+  .ed-tbtn { width: 100%; font: inherit; font-size: 11px; padding: 6px 0; margin-top: 4px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink2); }
+  .ed-saves { margin-top: 9px; border-top: 1px solid var(--line2); padding-top: 9px; }
+  .ed-slot { flex: 1; min-width: 0; font: inherit; font-size: 11px; padding: 5px 6px;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
+  .ed-help { font-family: 'JetBrains Mono', monospace; font-size: 9px; line-height: 1.6; color: var(--ink3);
+    margin-top: 9px; border-top: 1px solid var(--line2); padding-top: 8px; }
+  .ed-help b { color: var(--ink2); }
+  .ed-modes { display: flex; gap: 6px; margin-bottom: 8px; }
+  .ed-modes button { flex: 1; font: inherit; font-size: 11px; padding: 6px 0; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink2); }
+  .ed-modes button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .ed-read { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink2);
+    line-height: 1.6; min-height: 30px; margin-bottom: 8px; }
+  .ed-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .ed-row button { flex: 1; font: inherit; font-size: 11px; padding: 6px 0; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink2); }
+  .ed-row button:hover { border-color: var(--ink2); }
+  .ed-json { width: 100%; height: 70px; resize: vertical; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; border: 1px solid var(--line); border-radius: 3px; padding: 6px; color: var(--ink2);
+    background: #fff; }
+  .ed-hint { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink3);
+    margin-top: 7px; line-height: 1.5; }
+
+  /* Custom expandable panels */
+  .ctrl-panel { position: absolute; top: 76px; min-width: 188px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    backdrop-filter: blur(10px); overflow: hidden; }
+  .dp-left { left: 20px; }
+  .dp-right { right: 20px; }
+  .ctrl-header { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    cursor: pointer; user-select: none; }
+  .ctrl-header:hover { background: rgba(0,0,0,0.03); }
+  .ctrl-label-sm { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink3); }
+  .ctrl-selected { flex: 1; font-size: 13px; color: var(--ink); }
+  .ctrl-arrow { font-size: 9px; color: var(--ink3); display: inline-block; line-height: 1;
+    transition: transform 0.2s ease; }
+  .ctrl-panel.open .ctrl-arrow { transform: rotate(90deg); }
+  .ctrl-list { max-height: 0; overflow: hidden; transition: max-height 0.22s ease;
+    border-top: 0px solid var(--line); }
+  .ctrl-panel.open .ctrl-list { max-height: 250px; border-top-width: 1px; }
+  .ctrl-item { display: flex; align-items: center; gap: 9px; width: 100%;
+    font: inherit; font-size: 13px; text-align: left; padding: 8px 12px;
+    border: 0; background: transparent; color: var(--ink); cursor: pointer;
+    transition: background .12s; }
+  .ctrl-item:hover { background: rgba(0,0,0,0.04); }
+  .ctrl-item.active { background: rgba(0,0,0,0.05); font-weight: 500; }
+  .ctrl-item .swatch { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  .sw-god { background: var(--ink2); border-radius: 1px; }
+  .sw-red { background: var(--red); }
+  .sw-blue { background: var(--blue); }
+  .sw-loc { background: transparent; border: 1.5px solid var(--ink2); border-radius: 50%; }
+  .ctrl-item .meta { margin-left: auto; font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--ink3); letter-spacing: 0.04em; }
+
+  /* Bottom timeline */
+  .timeline { position: absolute; left: 20px; right: 20px; bottom: 18px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    backdrop-filter: blur(10px); padding: 13px 18px 15px; user-select: none; }
+  .tl-top { display: flex; align-items: center; gap: 16px; margin-bottom: 11px; }
+  .clock { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; }
+  .clock .lab { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .clock .val { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .clock-red .val, .clock-red .lab { color: var(--red); }
+  .clock-blue .val, .clock-blue .lab { color: var(--blue); }
+  .clock-blue { margin-left: auto; flex-direction: row-reverse; }
+  .event { flex: 1; text-align: center; }
+  .event .ek { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink3); }
+  .event #event-label { font-size: 13px; color: var(--ink); margin-top: 1px; }
+  .play { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line);
+    background: #fff; color: var(--ink); cursor: pointer; font-size: 13px; flex: 0 0 auto; }
+  .play[data-playing="1"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .dir { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line);
+    background: #fff; color: var(--ink2); cursor: pointer; font-size: 15px; font-weight: 600;
+    line-height: 1; flex: 0 0 auto; transition: color .15s, border-color .15s, opacity .15s; }
+  .dir[data-dir="-1"] { color: var(--blue); border-color: var(--blue); }
+  .dir:disabled { opacity: 0.32; cursor: default; }
+
+  /* Inverted-time indicator */
+  .inv-badge { position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.16em;
+    color: #fff; background: var(--blue); padding: 2px 10px; border-radius: 20px;
+    text-transform: uppercase; display: none; box-shadow: 0 2px 8px rgba(47,111,237,0.4); }
+  .inv-badge.on { display: block; }
+
+  /* Subjective timeline */
+  .subj-row { display: none; align-items: center; gap: 11px; margin-top: 10px;
+    padding-top: 10px; border-top: 1px dashed var(--line); }
+  .subj-row.on { display: flex; }
+  .subj-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink2); white-space: nowrap; }
+  #subj-track { position: relative; flex: 1; height: 6px; background: var(--line2); border-radius: 3px;
+    cursor: pointer; touch-action: none; }
+  #subj-fill { position: absolute; left: 0; top: 0; height: 100%; width: 0; background: var(--red); border-radius: 3px; }
+  #subj-handle { position: absolute; top: 50%; left: 0; width: 15px; height: 15px;
+    transform: translate(-50%, -50%); border-radius: 50%; background: #fff; border: 2px solid var(--red);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .subj-row.inv #subj-fill { background: var(--blue); }
+  .subj-row.inv #subj-handle { border-color: var(--blue); }
+  .subj-dir { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink3); white-space: nowrap; min-width: 150px; text-align: right; }
+  .subj-row.inv .subj-dir { color: var(--blue); }
+
+  .tl-track-wrap { position: relative; height: 30px; display: flex; align-items: center;
+    cursor: pointer; touch-action: none; }
+  #track { position: relative; width: 100%; height: 5px; background: var(--line2);
+    border-radius: 3px; cursor: pointer; }
+  #track-fill { position: absolute; left: 0; top: 0; height: 100%; width: 0;
+    background: linear-gradient(90deg, var(--blue), #9a7bd0 50%, var(--red)); border-radius: 2px; }
+  #handle { position: absolute; top: 50%; left: 0; width: 16px; height: 16px;
+    transform: translate(-50%, -50%); border-radius: 50%; background: #fff;
+    border: 2px solid var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .marker { position: absolute; top: 50%; width: 9px; height: 9px;
+    transform: translate(-50%, -50%) rotate(45deg); background: #fff;
+    border: 1.5px solid var(--ink2); padding: 0; cursor: pointer; }
+  .marker:hover { border-color: var(--ink); background: var(--ink); }
+  .tl-scale { display: flex; justify-content: space-between; margin-top: 7px;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink3); letter-spacing: 0.06em; }
+
+  /* 3D labels (CSS2D) */
+  .tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
+    white-space: nowrap; transform: translate(-50%, -50%); user-select: none; }
+  .tag-loc { display: flex; align-items: center; gap: 5px; color: var(--ink);
+    background: rgba(255,255,255,0.82); padding: 3px 7px; border: 1px solid var(--line);
+    border-radius: 3px; font-weight: 600; backdrop-filter: blur(4px); }
+  .tag-loc .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ink); }
+  .tag-loc:hover { border-color: var(--ink); }
+  .tag-fwd { color: var(--red); font-weight: 600; }
+  .tag-fwd .dot { background: var(--red); }
+  .tag-inv { color: var(--blue); font-weight: 600; }
+  .tag-inv .dot { background: var(--blue); }
+  .tag-unit { background: rgba(255,255,255,0.9); padding: 2px 6px; border-radius: 3px;
+    border: 1px solid currentColor; font-weight: 600; font-size: 9px; }
+
+  /* Legend */
+  .legend { position: absolute; right: 20px; bottom: 210px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    backdrop-filter: blur(10px); padding: 10px 12px; width: 220px; }
+  .legend h2 { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink3); margin: 0 0 8px; }
+  .leg-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink2);
+    margin-bottom: 5px; }
+  .leg-row .bar { width: 16px; height: 3px; border-radius: 2px; }
+
+  /* Intro modal */
+  .intro { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center;
+    justify-content: center; background: rgba(20,26,33,0.42); backdrop-filter: blur(3px); }
+  .intro.hidden { display: none; }
+  .intro-card { width: 560px; max-width: calc(100vw - 40px); background: #fff;
+    border-radius: 8px; padding: 30px 32px; box-shadow: 0 24px 60px rgba(0,0,0,0.28); }
+  .intro-card .kicker { font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink3); }
+  .intro-card h2 { font-size: 23px; margin: 6px 0 4px; letter-spacing: 0.01em; }
+  .intro-card p { font-size: 14px; line-height: 1.62; color: var(--ink2); margin: 12px 0; }
+  .intro-card ul { font-size: 13.5px; line-height: 1.6; color: var(--ink2); padding-left: 18px; margin: 12px 0; }
+  .intro-card b { color: var(--ink); font-weight: 600; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 12px;
+    font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .pill-red { background: #fdecec; color: var(--red); }
+  .pill-blue { background: #e9f0fd; color: var(--blue); }
+  .intro-close { margin-top: 18px; font: inherit; font-size: 13px; font-weight: 600;
+    padding: 10px 20px; border: 0; border-radius: var(--radius); background: var(--ink);
+    color: #fff; cursor: pointer; letter-spacing: 0.04em; }
+  .intro-note { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink3);
+    margin-top: 14px; letter-spacing: 0.03em; }
+
+  /* Theme */
+  body[data-theme="console"] {
+    --panel: #ffffff; --bg: #8a9aae;
+  }
+  body[data-theme="console"] .timeline,
+  body[data-theme="console"] .legend { box-shadow: 0 6px 20px rgba(20,30,45,0.08); border-color: var(--line2); }
+
+  /* Hint */
+  .hint { position: absolute; left: 50%; top: 66px; transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink3);
+    letter-spacing: 0.06em; background: var(--panel); padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--line); backdrop-filter: blur(6px); }
+</style>
+</head>
+<body data-theme="console">
+  <div id="app"></div>
+
+
+  <div class="ui">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="brand">
+        <h1>Oslo Freeport · The Turnstile Encounter</h1>
+        <span class="sub">PROTOTYPE — INTERFACE FRAME</span>
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn edit-btn" id="edit-btn" title="Scene editor — move/rotate/scale landmarks">EDIT</button>
+        <button class="icon-btn xray-btn" id="xray" data-on="0" title="X-ray: see through walls">X-RAY</button>
+        <button class="icon-btn" id="help" title="About">i</button>
+      </div>
+    </header>
+
+    <div class="hint">DRAG to orbit · SCROLL to zoom · X-RAY reveals interior · timeline below</div>
+
+    <!-- Left: view panel -->
+    <div class="ctrl-panel dp-left" id="view-panel">
+      <div class="ctrl-header" id="view-header">
+        <span class="ctrl-label-sm">VIEW</span>
+        <span class="ctrl-selected" id="view-selected">God View</span>
+        <span class="ctrl-arrow">▶</span>
+      </div>
+      <div class="ctrl-list">
+        <button class="ctrl-item active" data-value="god"><span class="swatch sw-god"></span><span class="ctrl-name">God View</span><span class="meta">ORBIT</span></button>
+        <button class="ctrl-item" data-value="tpFwd"><span class="swatch sw-red"></span><span class="ctrl-name">TP (FWD)</span><span class="meta">FWD</span></button>
+        <button class="ctrl-item" data-value="tpRev"><span class="swatch sw-red"></span><span class="ctrl-name">TP (REV)</span><span class="meta">FWD</span></button>
+        <button class="ctrl-item" data-value="neilFwd"><span class="swatch sw-red"></span><span class="ctrl-name">Neil (FWD)</span><span class="meta">FWD</span></button>
+        <button class="ctrl-item" data-value="tpInv"><span class="swatch sw-blue"></span><span class="ctrl-name">TP (INV)</span><span class="meta">INV</span></button>
+        <button class="ctrl-item" data-value="neilInv"><span class="swatch sw-blue"></span><span class="ctrl-name">Neil (INV)</span><span class="meta">INV</span></button>
+      </div>
+    </div>
+
+    <!-- Right: location panel -->
+    <div class="ctrl-panel dp-right" id="loc-panel">
+      <div class="ctrl-header" id="loc-header">
+        <span class="ctrl-label-sm">LOCATION</span>
+        <span class="ctrl-selected">— jump to —</span>
+        <span class="ctrl-arrow">▶</span>
+      </div>
+      <div class="ctrl-list">
+        <button class="ctrl-item" data-value="exterior"><span class="swatch sw-loc"></span><span class="ctrl-name">Freeport Exterior</span></button>
+        <button class="ctrl-item" data-value="crash"><span class="swatch sw-loc"></span><span class="ctrl-name">Crash Site</span></button>
+        <button class="ctrl-item" data-value="hallway"><span class="swatch sw-loc"></span><span class="ctrl-name">Fight Hallway</span></button>
+        <button class="ctrl-item" data-value="turnstile"><span class="swatch sw-loc"></span><span class="ctrl-name">Turnstile Room</span></button>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <aside class="legend">
+      <h2>Time Vector</h2>
+      <div class="leg-row"><span class="bar" style="background:var(--red)"></span> Forward — TP / TP (Reverted) / Neil</div>
+      <div class="leg-row"><span class="bar" style="background:var(--blue)"></span> Inverted — TP (Suit) / Neil (Stretcher)</div>
+      <div class="leg-row"><span class="bar" style="background:#ff6b2b"></span> Fire from the 747 crash</div>
+    </aside>
+
+    <!-- Timeline -->
+    <footer class="timeline" id="timeline">
+      <div class="inv-badge" id="inv-badge">◀ Time inverted · clock running backward</div>
+      <div class="tl-top">
+        <button class="play" id="play" data-playing="0">▶</button>
+        <button class="dir" id="dir-toggle" data-dir="1" title="Playback direction">→</button>
+        <div class="clock clock-red"><span class="lab">FWD ↓</span><span class="val" id="clock-red">0:00</span></div>
+        <div class="event"><div class="ek">Key Event</div><div id="event-label">747 crashes into the freeport</div></div>
+        <div class="clock clock-blue"><span class="lab">INV ↑</span><span class="val" id="clock-blue">8:00</span></div>
+      </div>
+      <div class="tl-track-wrap">
+        <div id="track"><div id="track-fill"></div><div id="handle"></div></div>
+      </div>
+      <div class="tl-scale">
+        <span style="opacity:.55">← PRE</span>
+        <span>CRASH</span>
+        <span>ENTRY</span>
+        <span>TURNSTILE</span>
+        <span>GLASS ▪ FIGHT</span>
+        <span>ESCAPE</span>
+        <span style="opacity:.55">END →</span>
+      </div>
+      <div class="subj-row" id="subj-row">
+        <span class="subj-label" id="subj-label">SUBJECTIVE</span>
+        <div id="subj-track"><div id="subj-fill"></div><div id="subj-handle"></div></div>
+        <span class="subj-dir" id="subj-dir"></span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Intro modal -->
+  <div class="intro" id="intro">
+    <div class="intro-card">
+      <div class="kicker">Interface Prototype · Oslo Freeport Heist</div>
+      <h2>The Turnstile Encounter, navigable</h2>
+      <p>A schematic 3D reconstruction of the Oslo Freeport break-in — built to <b>explore its spatial and temporal logic</b>. The Protagonist fights his own inverted self without knowing it.</p>
+      <ul>
+        <li>A hijacked <b>Boeing 747</b> crashes into the freeport as a distraction. The Protagonist and Neil enter through the crash hole.</li>
+        <li>They discover the <b>Rotas turnstile</b> — a time-inversion machine hidden in the freeport vault. <span class="pill pill-red">FORWARD</span> Protagonist enters from the east; <span class="pill pill-blue">INVERTED</span> Protagonist (his future self) emerges from the turnstile moving backward through time.</li>
+        <li>The inverted self <b>bursts through a glass wall</b>. They fight in the corridor — the forward self doesn't realize he's fighting himself. Bullets un-fire; movements reverse.</li>
+        <li>The inverted self retreats back toward the turnstile. Neil pulls the Protagonist out as the freeport burns.</li>
+        <li><b>Switch views</b> (left) to ride with the forward or inverted Protagonist, or with Neil. The subjective timeline for the inverted self runs the clock backward.</li>
+      </ul>
+      <button class="intro-close" id="intro-close">Enter the freeport</button>
+      <div class="intro-note">Part of a larger TENET battle timeline visualization. Switch scenes via the tabs above.</div>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="js/oslo/app.js"></script>
+</body>
+</html>
