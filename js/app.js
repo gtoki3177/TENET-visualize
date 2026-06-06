@@ -117,8 +117,9 @@ function followTag(obj, text, kind, y = 9) {
   el._obj2d = o;  // CSS2DRenderer ignores parent.visible — we sync it manually
   return el;
 }
-// TP & Ives travel together as the splinter unit — label the pair once, as Ives.
-followTag(entities.refs.ives, 'IVES', 'fwd');
+// TP & Ives are the splinter unit — label both (TP's tag rides higher so they don't overlap).
+const tpTag = followTag(entities.refs.tp, 'PROTAGONIST', 'fwd', 13);
+const ivesTag = followTag(entities.refs.ives, 'IVES', 'fwd');
 followTag(entities.refs.volkov, 'VOLKOV', 'neutral');
 // One Neil, up to three coexisting selves on the field — all just "NEIL", colour
 // encodes time-vector. neil = forward (flips blue→red at the turnstile), neil3 =
@@ -518,6 +519,9 @@ function syncNeilTag() {
   // CSS2DRenderer ignores parent Group.visible — sync the CSS2DObjects explicitly
   if (neil1Tag._obj2d) neil1Tag._obj2d.visible = entities.refs.neil.visible;
   if (neil3Tag._obj2d) neil3Tag._obj2d.visible = entities.refs.neil3.visible;
+  // TP & Ives hide inside the Chinook until they disembark — sync their tags too.
+  if (tpTag._obj2d) tpTag._obj2d.visible = entities.refs.tp.visible;
+  if (ivesTag._obj2d) ivesTag._obj2d.visible = entities.refs.ives.visible;
 }
 
 // ---------- Loop ----------

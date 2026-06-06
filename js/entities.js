@@ -113,35 +113,46 @@ export function buildEntities(scene, world) {
   // Volkov's grey INSERTION helicopter (airdrops him at the northern cave — bare).
   const volkovHeli = makeHeli(0xb9c0c8); root.add(volkovHeli);
 
-  // ---------- Red team (forward): LZ → battlefield assault → extract at the hypocenter ----------
+  // Disembark/board points: the GROUND spots directly under each transport, so troops
+  // spill out of (and later climb back into) the helis/containers rather than the bare LZ.
+  const redInsSpot = i => gp(lz.x - 26 + i * 52, lz.z + 8);        // under the 2 red Chinooks
+  const redExtSpot = gp(hill.x + 8, hill.z - 4);                   // under the red extraction Chinook
+  const blueInsSpot = i => gp(lz.x + 50 + i * 22, lz.z + 34);      // under the 2 blue container helis
+  const blueExtSpot = i => gp(hill.x - 24 + i * 48, hill.z + 22);  // under the 2 blue extraction helis
+
+  // ---------- Red team (forward): disembark Chinooks → battlefield assault → board extraction Chinook ----------
   const redTeam = [];
   for (let i = 0; i < 12; i++) {
     const u = makeUnit(COL.forward, 0.8); root.add(u);
     redTeam.push({ u,
-      pLZ:  gp(lz.x - 26 + (i % 4) * 14, lz.z - 6 + Math.floor(i / 4) * 12),
+      heli: i < 6 ? 0 : 1,                       // which insertion Chinook he rides in on
+      emergeT: 0.08 + (i % 6) * 0.016,           // staggered disembark 0.08→0.16 (after the Chinook sets down)
+      boardT:  0.88 + (i % 6) * 0.013,           // staggered re-board 0.88→0.95 (before the Chinook lifts)
       pBat: gp(-58 + (i % 5) * 22, -120 - (i % 3) * 18),
-      pHypo: gp(hill.x - 22 + (i % 4) * 13, hill.z + 18 + Math.floor(i / 4) * 11), // extract beside Blue
-      d: (i % 5) * 0.03 });
+      pHypo: gp(hill.x - 22 + (i % 4) * 13, hill.z + 18 + Math.floor(i / 4) * 11) }); // stage beside Blue
   }
   // ---------- Blue team (inverted) round-trip, seen in forward time ----------
-  // Limps backward out of the LZ containers (t=0) → fights across the battlefield →
-  // lifts away intact from the SE hypocenter at the blast (t=1).
+  // Spills sequentially out of the LZ containers (t≈0) → fights across the battlefield →
+  // climbs back into the SE hypocenter containers, which then lift away at the blast (t=1).
   const blueTeam = [];
   for (let i = 0; i < 12; i++) {
     const u = makeUnit(COL.inverted, 0.8); root.add(u);
     blueTeam.push({ u,
-      pLZ:   gp(lz.x + 28 + (i % 4) * 12, lz.z + 30 + Math.floor(i / 4) * 12),
+      heli: i < 6 ? 0 : 1,                       // which container heli he emerges from
+      emergeT: 0.08 + (i % 6) * 0.016,           // staggered emerge 0.08→0.16 (after the containers set down)
+      boardT:  0.83 + (i % 6) * 0.014,           // staggered load 0.83→0.91 (before the containers lift)
       pBat:  gp(-54 + (i % 5) * 22, -108 - (i % 3) * 16),
-      pHypo: gp(hill.x - 28 + (i % 4) * 13, hill.z - 28 + Math.floor(i / 4) * 11),
-      d: (i % 5) * 0.03 });
+      pHypo: gp(hill.x - 28 + (i % 4) * 13, hill.z - 28 + Math.floor(i / 4) * 11) });
   }
 
   // ---------- Protagonist & Ives (forward): LZ → north cave → underground SE to the vault ----------
   const tp = makeUnit(COL.forward, 1.15); root.add(tp);
   const ives = makeUnit(COL.forward, 1.15); root.add(ives);
+  const TP_EMERGE = 0.12;   // TP & Ives disembark the red Chinook with the assault wave
   const tpFrames = [
-    { t: 0.00, p: gp(lz.x - 6, lz.z - 6) },
-    { t: 0.10, p: gp(ts.x + 26, ts.z + 6) },
+    { t: 0.00, p: gp(lz.x - 26, lz.z + 8) },        // aboard the red Chinook on the LZ
+    { t: TP_EMERGE, p: gp(lz.x - 26, lz.z + 8) },   // step out as it sets down
+    { t: 0.18, p: gp(ts.x + 26, ts.z + 6) },
     { t: 0.22, p: gp(-22, -80) },
     { t: 0.34, p: gp(8, -155) },                        // heading NE toward the cave
     { t: 0.44, p: gp(cave.x + 20, cave.z + 28) },
@@ -290,33 +301,33 @@ export function buildEntities(scene, world) {
   function update(t, dt) {
     dt = dt || 0.016;
     // Red insertion Chinooks: descend onto LZ, troops disembark, then fly away
-    const landRed = clamp01(t / 0.08), goRed = clamp01((t - 0.15) / 0.18);
+    // Shared transport cadence: fly IN (descend) by 0.08, hold while troops un/load, fly OUT from 0.19.
+    const landRed = clamp01(t / 0.08), goRed = clamp01((t - 0.19) / 0.18);
     redHelis.forEach((h, i) => {
       const rx = lz.x - 26 + i * 52, rz = lz.z + 8, ry = gY(rx, rz) + 9;
       h.visible = t < 0.40;
       h.position.set(rx + goRed * (i === 0 ? -22 : 22), lerp(70, ry, landRed) + goRed * 100, rz - goRed * 75);
       h.userData.rotors.forEach(r => r.rotation.y += dt * 26);
     });
-    // Blue extraction helis (inverted): depart LZ in forward time — fly away immediately
-    const goBlue = clamp01(t / 0.12);
+    // Blue container helis fly IN and OUT in lockstep with the red Chinooks (shared landRed/goRed).
     blueHelis.forEach((h, i) => {
-      const bx = lz.x + 50 + i * 22, bz = lz.z + 34;
-      h.visible = t < 0.22;
-      h.position.set(bx + goBlue * (i * 2 - 1) * 18, gY(bx, bz) + 11 + goBlue * 90, bz - goBlue * 60);
+      const bx = lz.x + 50 + i * 22, bz = lz.z + 34, by = gY(bx, bz) + 11;
+      h.visible = t < 0.40;
+      h.position.set(bx + goRed * (i * 2 - 1) * 18, lerp(70, by, landRed) + goRed * 90, bz - goRed * 60);
       h.userData.rotors.forEach(r => r.rotation.y += dt * 26);
     });
     // Red extraction Chinook: descends to hypocenter, lifts out, then departs
-    exHeli.visible = t > 0.78 && t < 1.06;
+    exHeli.visible = t > 0.78 && t < 1.08;
     if (exHeli.visible) {
-      const desc = clamp01((t - 0.78) / 0.12), go = clamp01((t - 0.94) / 0.10);
+      const desc = clamp01((t - 0.78) / 0.12), go = clamp01((t - 0.98) / 0.08);  // hold grounded while troops board, then lift
       exHeli.position.set(hill.x + 8 + go * 35, exPadY + 70 - desc * 62 + go * 85, hill.z - 4 - go * 45);
       exHeli.userData.rotors.forEach(r => r.rotation.y += dt * 32);
     }
-    // Blue extraction helis at hypocenter: appear at blast, lift with containers, fly off
+    // Blue extraction helis at hypocenter: set down for loading at the blast, take troops aboard, lift off
     hypoBlueHelis.forEach((h, i) => {
-      h.visible = t > 0.82 && t < 1.08;
+      h.visible = t > 0.80 && t < 1.08;
       if (h.visible) {
-        const lift = clamp01((t - 0.86) / 0.14);
+        const lift = clamp01((t - 0.94) / 0.12);   // grounded 0.80→0.94 while the squad loads, then lifts
         h.position.set(hill.x - 24 + i * 48, exPadY + 11 + lift * 80, hill.z + 22 + lift * 40);
         h.userData.rotors.forEach(r => r.rotation.y += dt * 30);
       }
@@ -330,19 +341,41 @@ export function buildEntities(scene, world) {
       volkovHeli.userData.rotors.forEach(r => r.rotation.y += dt * 30);
     }
 
+    // Red: hidden inside the Chinook until emergeT → spills out → assaults → re-boards the
+    // extraction Chinook at boardT (walks into it, then vanishes "aboard" before it lifts).
     redTeam.forEach(o => {
-      if (t < 0.62) o.u.position.lerpVectors(o.pLZ, o.pBat, clamp01((t - 0.06 - o.d) / 0.5));
-      else o.u.position.lerpVectors(o.pBat, o.pHypo, clamp01((t - 0.62) / 0.36));
+      const spawn = redInsSpot(o.heli);
+      if (t < o.emergeT) { o.u.visible = false; o.u.position.copy(spawn); return; }
+      if (t >= o.boardT) {
+        const f = clamp01((t - o.boardT) / 0.05);
+        o.u.position.lerpVectors(o.pHypo, redExtSpot, f);
+        o.u.visible = f < 1;                    // climbs in, then gone (aboard)
+        return;
+      }
+      o.u.visible = true;
+      if (t < 0.62) o.u.position.lerpVectors(spawn, o.pBat, clamp01((t - o.emergeT) / 0.5));
+      else o.u.position.lerpVectors(o.pBat, o.pHypo, clamp01((t - 0.62) / (o.boardT - 0.62)));
     });
+    // Blue: emerges sequentially from the LZ containers → fights → climbs into the
+    // hypocenter containers at boardT, which then lift away with them aboard.
     blueTeam.forEach(o => {
-      if (t < 0.5) o.u.position.lerpVectors(o.pLZ, o.pBat, clamp01((t - o.d) / 0.5));
-      else o.u.position.lerpVectors(o.pBat, o.pHypo, clamp01((t - 0.5) / 0.5));
+      const spawn = blueInsSpot(o.heli);
+      if (t < o.emergeT) { o.u.visible = false; o.u.position.copy(spawn); return; }
+      if (t >= o.boardT) {
+        const f = clamp01((t - o.boardT) / 0.05);
+        o.u.position.lerpVectors(o.pHypo, blueExtSpot(o.heli), f);
+        o.u.visible = f < 1;                    // loaded into the container, then gone
+        return;
+      }
+      o.u.visible = true;
+      if (t < 0.5) o.u.position.lerpVectors(spawn, o.pBat, clamp01((t - o.emergeT) / 0.5));
+      else o.u.position.lerpVectors(o.pBat, o.pHypo, clamp01((t - 0.5) / (o.boardT - 0.5)));
     });
 
     if (!FREEZE.has('tp')) kf(tpFrames, t, tp.position);
     if (!FREEZE.has('ives')) kf(ivesFrames, t, ives.position);
-    tp.visible = inWindows(visSpec.tp, t);
-    ives.visible = inWindows(visSpec.ives, t);
+    tp.visible = inWindows(visSpec.tp, t) && t >= TP_EMERGE;     // hidden inside the Chinook until disembark
+    ives.visible = inWindows(visSpec.ives, t) && t >= TP_EMERGE;
 
     // Neil — FWD — colour flips blue (inverted) → red (forward) on revert
     if (!FREEZE.has('neil')) kf(neilFrames, t, neil.position);
