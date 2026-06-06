@@ -277,12 +277,12 @@ export const DOORS = {
 export const POS = {
   bldgCenter: { x: 0, z: 0 },
 
-  // The 747 (2×) is parked PARALLEL to and just in front of the north wall (edge 1), with
-  // a south-wing engine aimed at the east rolling door.
-  exterior:   { x: 0,   z: -150 },
+  // The 747 (2×) crashed in from the NORTH (nose pointing south), parked just in front of
+  // the north wall (edge 1); its LEFT-wing engine lines up with the east rolling door (x≈39).
+  exterior:   { x: 0,   z: -180 },
   crashWall:  { x: DOORS.rollE.x, z: DOORS.rollE.z },
-  crashHole:  { x: 39,  z: -58 },     // fire at the engine / right rolling door
-  plane:      { x: 37,  z: -96 },     // parked north of the wall, parallel
+  crashHole:  { x: 39,  z: -84 },     // fire at the left-wing engine, above the east door
+  plane:      { x: -3,  z: -100 },    // nose ~at the wall, body extending north
 
   // Turnstile room core
   provingWin: { x: 0, z: (HEX.partN + HEX.partS) / 2 },

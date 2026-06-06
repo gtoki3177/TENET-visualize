@@ -284,7 +284,7 @@ export function buildLandmarks(root) {
   const planeGroup = new THREE.Group();
   tag(planeGroup, '747_crash');
   planeGroup.position.set(POS.plane.x, 0, POS.plane.z);
-  planeGroup.rotation.y = 0;   // fuselage E-W (along x), parallel to and in front of the north wall
+  planeGroup.rotation.y = -Math.PI / 2;   // nose SOUTH (crashed in from the north); left wing → east
   root.add(planeGroup);
 
   const fuselageMat = track(new THREE.MeshStandardMaterial({ color: COL.plane, roughness: 0.5, metalness: 0.12 }), surfaceMats);
@@ -301,7 +301,7 @@ export function buildLandmarks(root) {
     const nose = new THREE.Mesh(new THREE.SphereGeometry(R, 20, 16), fuselageMat);
     nose.scale.set(1.7, 1, 1); nose.position.x = 22; nose.castShadow = true; g.add(nose);
     const tail = new THREE.Mesh(new THREE.ConeGeometry(R, 17, 24), fuselageMat);
-    tail.rotation.z = -Math.PI / 2; tail.position.set(-28.5, 1.8, 0); tail.castShadow = true; g.add(tail);
+    tail.rotation.z = Math.PI / 2; tail.position.set(-28, 0, 0); tail.castShadow = true; g.add(tail);  // apex points BACK (tapers to a point)
     // 747 upper-deck hump (forward third)
     const hump = new THREE.Mesh(new THREE.SphereGeometry(R * 0.82, 18, 14), fuselageMat);
     hump.scale.set(2.4, 0.85, 0.9); hump.position.set(12, R * 0.72, 0); hump.castShadow = true; g.add(hump);
