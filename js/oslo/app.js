@@ -78,8 +78,12 @@ controls.target.set(0, 8, -5);
 // view leave the god-orbit centre / a followed character.
 controls.enablePan = true;
 controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
-addEventListener('keydown', (e) => { if (e.key === 'Shift') controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN; });
-addEventListener('keyup',   (e) => { if (e.key === 'Shift') controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE; });
+// Decide middle-button action from the modifier held AT click time (capture phase, before
+// OrbitControls reads mouseButtons) — works even inside the index iframe, where a Shift
+// keydown wouldn't reach this document unless it had keyboard focus.
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (e.button === 1) controls.mouseButtons.MIDDLE = e.shiftKey ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+}, true);
 renderer.domElement.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });  // no middle-click autoscroll
 
 // ---------- Build world + entities ----------
