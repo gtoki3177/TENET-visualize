@@ -259,9 +259,15 @@ elTrackWrap.addEventListener('pointerdown', (e) => {
 const playBtn = document.getElementById('play');
 function setPlay(p) { playing = p; playBtn.dataset.playing = p ? '1' : '0'; playBtn.textContent = p ? '❚❚' : '▶'; }
 function pause() { setPlay(false); }
-playBtn.addEventListener('click', () => {
-  if (t >= T_MAX) setT(T_MIN);
-  setPlay(!playing);
+function togglePlay() { if (t >= T_MAX) setT(T_MIN); setPlay(!playing); }
+playBtn.addEventListener('click', togglePlay);
+// Spacebar toggles play/pause (ignored while typing in the editor's fields)
+addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' && e.key !== ' ') return;
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
+  e.preventDefault();   // no page scroll / native button re-trigger
+  togglePlay();
 });
 
 // ---------- Playback direction (god view only) ----------

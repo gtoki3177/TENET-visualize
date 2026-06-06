@@ -266,11 +266,20 @@ elTrackWrap.addEventListener('pointerdown', (e) => {
 const playBtn = document.getElementById('play');
 function setPlay(p) { playing = p; playBtn.dataset.playing = p ? '1' : '0'; playBtn.textContent = p ? '❚❚' : '▶'; }
 function pause() { setPlay(false); }
-playBtn.addEventListener('click', () => {
+function togglePlay() {
   if (subjKey) { if (subjT >= 1) setSubjT(0); }            // following: subjective track drives playback
   else if (playDir > 0 && t >= T_MAX) setT(T_MIN);          // god view, forward: rewind to start
   else if (playDir < 0 && t <= T_MIN) setT(T_MAX);          // god view, reverse: jump to end
   setPlay(!playing);
+}
+playBtn.addEventListener('click', togglePlay);
+// Spacebar toggles play/pause (ignored while typing in the editor's fields)
+addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' && e.key !== ' ') return;
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
+  e.preventDefault();   // no page scroll / native button re-trigger
+  togglePlay();
 });
 
 // ---------- Playback direction (god view only) ----------
