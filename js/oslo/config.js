@@ -281,8 +281,8 @@ export const POS = {
   // the north wall (edge 1); its LEFT-wing engine lines up with the east rolling door (x≈39).
   exterior:   { x: 0,   z: -180 },
   crashWall:  { x: DOORS.rollE.x, z: DOORS.rollE.z },
-  crashHole:  { x: 39,  z: -84 },     // fire at the left-wing engine, above the east door
-  plane:      { x: -3,  z: -100 },    // nose ~at the wall, body extending north
+  crashHole:  { x: 39,  z: -104 },    // fire at the left-wing engine
+  plane:      { x: -3,  z: -120 },    // parked a bit OUT (north of the wall, not touching)
 
   // Turnstile room core
   provingWin: { x: 0, z: (HEX.partN + HEX.partS) / 2 },
