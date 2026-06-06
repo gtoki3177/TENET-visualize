@@ -290,7 +290,8 @@ export function buildWorld(scene) {
         if (t <= ta - w - r || t >= ta) return 0;
         return t < ta - r ? Math.PI * (t - (ta - w - r)) / w : Math.PI * (1 - (t - (ta - r)) / r);
       };
-      const ang = wr(0.10, 0.05, 0.05) + wr(0.62, 0.07, 0.07);
+      const SPIN = 7 / 180;   // wind+unwind in ~7s of the 180s clock (was 18s), split evenly
+      const ang = wr(0.10, SPIN / 2, SPIN / 2) + wr(0.62, SPIN / 2, SPIN / 2);
       landmarks.turnstile.blue.rotation.y = ang;    // CCW out, CW back
       landmarks.turnstile.red.rotation.y = -ang;    // CW out, CCW back
     }
