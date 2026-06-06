@@ -161,7 +161,7 @@ export function buildLandmarks(root) {
   const holeMat = track(new THREE.MeshStandardMaterial({ color: 0x0c0e10, roughness: 0.95 }), surfaceMats);
   const holeRing = track(new THREE.MeshStandardMaterial({ color: 0x9fb6c4, roughness: 0.4, transparent: true, opacity: 0.5, side: THREE.DoubleSide }), surfaceMats);
   const bulletHoles = [];
-  for (const [hy, hz] of [[partH - 0.6, partCz - 8], [partH - 3, partCz - 2.5], [partH - 1.8, partCz + 4], [partH - 3.4, partCz + 9]]) {
+  for (const [hy, hz] of [[partH - 5.6, partCz - 8], [partH - 8, partCz - 2.5], [partH - 6.8, partCz + 4], [partH - 8.4, partCz + 9]]) {
     const hg = new THREE.Group();
     hg.position.set(0, hy, hz);
     for (const sx of [0.26, -0.26]) {
