@@ -254,31 +254,82 @@ export function buildLandmarks(root) {
   const planeGroup = new THREE.Group();
   tag(planeGroup, '747_crash');
   planeGroup.position.set(POS.plane.x, 0, POS.plane.z);
-  planeGroup.rotation.y = Math.PI / 2;   // nose points SOUTH (+z), punching in through the north rolling door
+  planeGroup.rotation.y = -Math.PI / 2 + 0.3;  // nose toward the freeport (+z), skidded in askew
   root.add(planeGroup);
 
-  const fuselageMat = track(new THREE.MeshStandardMaterial({ color: COL.plane, roughness: 0.6 }), surfaceMats);
-  const fuselageGeo = new THREE.CylinderGeometry(10, 10, 55, 24); fuselageGeo.rotateZ(Math.PI / 2);
-  const fuselage = new THREE.Mesh(fuselageGeo, fuselageMat);
-  fuselage.position.set(-5, 10, -10); fuselage.rotation.y = -0.25; fuselage.castShadow = true; planeGroup.add(fuselage);
-
-  const noseGeo = new THREE.ConeGeometry(10, 18, 24); noseGeo.rotateZ(-Math.PI / 2);
-  const nose = new THREE.Mesh(noseGeo, fuselageMat);
-  nose.position.set(-30, 10, -6); nose.rotation.y = -0.25; nose.castShadow = true; planeGroup.add(nose);
-
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(35, 1, 8), fuselageMat);
-  wing.position.set(15, 1.5, 10); wing.rotation.y = 0.4; wing.rotation.z = 0.15; planeGroup.add(wing);
-
-  const engineGeo = new THREE.CylinderGeometry(3.5, 3.5, 10, 16); engineGeo.rotateZ(Math.PI / 2);
-  const engineMat = track(new THREE.MeshStandardMaterial({ color: COL.planeEngine, roughness: 0.7 }), surfaceMats);
-  const engine1 = new THREE.Mesh(engineGeo, engineMat); engine1.position.set(10, 5, 15); engine1.rotation.y = 0.3; planeGroup.add(engine1);
-  const engine2 = new THREE.Mesh(engineGeo, engineMat); engine2.position.set(20, 4, -5); engine2.rotation.y = -0.2; engine2.rotation.z = 0.1; planeGroup.add(engine2);
-
+  const fuselageMat = track(new THREE.MeshStandardMaterial({ color: COL.plane, roughness: 0.5, metalness: 0.12 }), surfaceMats);
+  const engineMat   = track(new THREE.MeshStandardMaterial({ color: COL.planeEngine, roughness: 0.6, metalness: 0.25 }), surfaceMats);
+  const trimMat     = track(new THREE.MeshStandardMaterial({ color: COL.planeEdge, roughness: 0.6 }), surfaceMats);
   let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
-  for (let i = 0; i < 12; i++) {
+
+  // Stylised 747, built nose-toward-+X in local space (R = fuselage radius).
+  function build747() {
+    const g = new THREE.Group();
+    const R = 5;
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 44, 24), fuselageMat);
+    tube.rotation.z = Math.PI / 2; tube.castShadow = true; g.add(tube);
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(R, 20, 16), fuselageMat);
+    nose.scale.set(1.7, 1, 1); nose.position.x = 22; nose.castShadow = true; g.add(nose);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(R, 17, 24), fuselageMat);
+    tail.rotation.z = -Math.PI / 2; tail.position.set(-28.5, 1.8, 0); tail.castShadow = true; g.add(tail);
+    // 747 upper-deck hump (forward third)
+    const hump = new THREE.Mesh(new THREE.SphereGeometry(R * 0.82, 18, 14), fuselageMat);
+    hump.scale.set(2.4, 0.85, 0.9); hump.position.set(12, R * 0.72, 0); hump.castShadow = true; g.add(hump);
+    // window / livery stripe down each side
+    for (const sd of [1, -1]) {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(42, 1.1, 0.2), trimMat);
+      stripe.position.set(-3, R * 0.45, sd * R); g.add(stripe);
+    }
+
+    // Swept main wing (span along +z for side=+1), with two underslung engines.
+    function wing(side) {
+      const root = 18, tip = 6, span = 34, sweep = 15;
+      const sh = new THREE.Shape();
+      sh.moveTo(9, 0); sh.lineTo(9 - root, 0); sh.lineTo(9 - sweep - tip, span); sh.lineTo(9 - sweep, span); sh.closePath();
+      const geo = new THREE.ExtrudeGeometry(sh, { depth: 1.1, bevelEnabled: false });
+      geo.translate(0, 0, -0.55); geo.rotateX(Math.PI / 2);     // lay flat in XZ, thickness on Y
+      const m = new THREE.Mesh(geo, fuselageMat);
+      m.scale.z = side; m.position.set(0, -0.5, side * (R - 0.5));
+      m.rotation.x = -side * 0.05;       // slight dihedral
+      m.castShadow = true; g.add(m);
+      for (const [ex, ez] of [[3, 11], [-1, 21]]) {
+        const nac = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.0, 7, 16), engineMat);
+        nac.rotation.z = Math.PI / 2; nac.position.set(ex, -3.2, side * ez); nac.castShadow = true; g.add(nac);
+        const intake = new THREE.Mesh(new THREE.TorusGeometry(2.1, 0.5, 8, 16), trimMat);
+        intake.rotation.y = Math.PI / 2; intake.position.set(ex + 3.6, -3.2, side * ez); g.add(intake);
+        const pylon = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 0.8), fuselageMat);
+        pylon.position.set(ex - 0.5, -1.6, side * ez); g.add(pylon);
+      }
+    }
+    wing(1); wing(-1);
+
+    // Tail — vertical fin + horizontal stabilisers.
+    const finSh = new THREE.Shape();
+    finSh.moveTo(-22, 0); finSh.lineTo(-33, 0); finSh.lineTo(-35, 15); finSh.lineTo(-27, 15); finSh.closePath();
+    const finGeo = new THREE.ExtrudeGeometry(finSh, { depth: 0.9, bevelEnabled: false });
+    finGeo.translate(0, 0, -0.45);
+    const fin = new THREE.Mesh(finGeo, fuselageMat); fin.position.y = R - 1.2; fin.castShadow = true; g.add(fin);
+    function stab(side) {
+      const sh = new THREE.Shape();
+      sh.moveTo(-25, 0); sh.lineTo(-31, 0); sh.lineTo(-34, 12); sh.lineTo(-30.5, 12); sh.closePath();
+      const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.8, bevelEnabled: false });
+      geo.translate(0, 0, -0.4); geo.rotateX(Math.PI / 2);
+      const m = new THREE.Mesh(geo, fuselageMat); m.scale.z = side; m.position.set(0, R - 2.2, side * 1.6); g.add(m);
+    }
+    stab(1); stab(-1);
+    return g;
+  }
+
+  const jet = build747();
+  jet.position.y = 7;                 // belly off the ground
+  jet.rotation.z = -0.05;             // slight bank, as if it skidded in
+  planeGroup.add(jet);
+
+  // A little scattered debris near the wreck.
+  for (let i = 0; i < 7; i++) {
     const size = 1 + rnd() * 3;
     const deb = new THREE.Mesh(new THREE.BoxGeometry(size, size * 0.6, size * 0.8), rnd() > 0.5 ? fuselageMat : scorchMat);
-    deb.position.set((rnd() - 0.5) * 50, size * 0.3, (rnd() - 0.5) * 40);
+    deb.position.set((rnd() - 0.5) * 46, size * 0.3, (rnd() - 0.5) * 30);
     deb.rotation.set(rnd() * 0.3, rnd() * Math.PI, rnd() * 0.3);
     planeGroup.add(deb);
   }
@@ -294,9 +345,9 @@ export function buildLandmarks(root) {
     }
     return bGroup;
   };
-  planeGroup.add(createFireBlob(-25, 8, -8, 5));
-  planeGroup.add(createFireBlob(-15, 4, 5, 4));
-  planeGroup.add(createFireBlob(-30, 10, -2, 6));
+  planeGroup.add(createFireBlob(24, 6, 0, 5));    // nose fire
+  planeGroup.add(createFireBlob(2, 4, 12, 4));    // wing root
+  planeGroup.add(createFireBlob(10, 5, -6, 4));
 
   const vanGroup = new THREE.Group();
   tag(vanGroup, 'ambulance_van');

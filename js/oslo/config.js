@@ -178,8 +178,15 @@ function pointOnEdge(ring, i, f) {
   return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f };
 }
 
+// Pull the inner + middle rings NORTH, toward the outer ring's top wall, so the merged
+// top connection isn't a big empty wedge. The OUTER ring stays put (offset from the base
+// hexagon); the inner/middle are that base shifted north, then offset/merged.
+const NORTHSHIFT = 24;
+const _baseInner = _innerCorners;
+const _shiftedInner = _baseInner.map(c => [c[0], c[1] - NORTHSHIFT]);
+
 export const HEX = {
-  inner: _innerCorners,
+  inner: _shiftedInner,
   gapThin: 12,   // thin transition layer (inner hex → middle hex)
   gapBig:  28,   // large outer layer    (middle hex → outer hex)
   wallH:   18,   // wall height (NO roof above)
@@ -192,18 +199,19 @@ export const HEX = {
   midDoors:   { 2: [{ at: 0.50, w: 9 }], 4: [{ at: 0.50, w: 9 }] },   // SE/SW (user 5/4)
   outerDoors: { 0: [{ at: 0.26, w: 14 }, { at: 0.74, w: 14 }] },      // NORTH (user 1) two sides: rolling doors → outside
 
-  // Turnstile cylinders + partition
-  cylZ:   -4,
+  // Turnstile cylinders + partition (shifted north with the inner room)
+  cylZ:   -4 - NORTHSHIFT,
   cylX:    8,
-  partN:  -4,    // partition runs from between the cylinders …
-  partS:  _BR.z, // … south to the bottom (door) edge
+  partN:  -4 - NORTHSHIFT,        // partition runs from between the cylinders …
+  partS:  _BR.z - NORTHSHIFT,     // … south to the bottom (door) edge
 };
 
-// Concentric rings (arrays of [x,z]).
+// Rings (arrays of [x,z]). Outer is offset from the UN-shifted base so it stays put;
+// inner/middle are the north-shifted hexagon, so they sit close to the outer top wall.
 export const RINGS = {
-  inner: HEX.inner,
+  inner: HEX.inner,                                            // shifted north
   mid:   offsetPolygon(HEX.inner, HEX.gapThin),
-  outer: offsetPolygon(HEX.inner, HEX.gapThin + HEX.gapBig),
+  outer: offsetPolygon(_baseInner, HEX.gapThin + HEX.gapBig),  // from base → unchanged
 };
 
 // MERGE: lift the middle ring's top corners up onto the outer ring's top edge, so the
@@ -215,6 +223,14 @@ export const MERGE = { skipMidTop: true };
 const _topZ = RINGS.outer[0][1];
 RINGS.mid[0] = [RINGS.mid[0][0], _topZ];   // mid TL → onto outer top edge
 RINGS.mid[1] = [RINGS.mid[1][0], _topZ];   // mid TR → onto outer top edge
+
+// Compact the OUTER ring's south half — the room now sits north, so the southern big
+// layer was oversized. Pull the east/west points and the bottom corners inward (keep the
+// top edge / rolling doors / crash fixed).
+RINGS.outer[2] = [ 58, 12];   // RE
+RINGS.outer[3] = [ 20, 40];   // BR
+RINGS.outer[4] = [-20, 40];   // BL
+RINGS.outer[5] = [-58, 12];   // WE
 {
   const xoL = RINGS.outer[0][0], xoR = RINGS.outer[1][0];  // outer top-edge x range
   const xmL = RINGS.mid[0][0],   xmR = RINGS.mid[1][0];    // where the middle joins
