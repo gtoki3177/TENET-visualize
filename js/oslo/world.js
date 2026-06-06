@@ -291,8 +291,8 @@ export function buildWorld(scene) {
         return t < ta - r ? Math.PI * (t - (ta - w - r)) / w : Math.PI * (1 - (t - (ta - r)) / r);
       };
       const SPIN = 7 / 180;   // wind+unwind in ~7s of the 180s clock, split evenly
-      const ang = wr(7 / 180, SPIN / 2, SPIN / 2)    // first turn ends at 0:07
-                + wr(60 / 180, SPIN / 2, SPIN / 2);  // second turn ends at 1:00
+      const ang = wr(8 / 180, SPIN / 2, SPIN / 2)    // first turn: starts 0:01, ends 0:08
+                + wr(60 / 180, SPIN / 2, SPIN / 2);  // second turn: starts 0:53, ends 1:00
       landmarks.turnstile.blue.rotation.y = ang;    // CCW out, CW back
       landmarks.turnstile.red.rotation.y = -ang;    // CW out, CCW back
     }
