@@ -220,6 +220,7 @@ export function buildLandmarks(root) {
   slideDoor(midC, 1, HEX.midDoors[1][0], midGroup, 'door_mid_R');
   slideDoor(midC, 5, HEX.midDoors[5][0], midGroup, 'door_mid_L');
   slideDoor(outerC, 0, HEX.outerDoors[0][2], outerGroup, 'door_conn');
+  slideDoor(outerC, 1, HEX.outerDoors[1][0], outerGroup, 'door_outR');
 
   // ============================================================
   //  E. THE ROTAS TURNSTILE MACHINE (two cylinders + frame)
@@ -266,39 +267,18 @@ export function buildLandmarks(root) {
   const blueCyl = turnstileShell(-HEX.cylX, false, 0x0870dd, 0x003399);
   tag(blueCyl, 'turnstile_blue'); turnstileGroup.add(blueCyl);
 
-  // Static frame (does NOT spin): base track ring, support posts, top beam.
+  // Static frame (does NOT spin): just the base track ring on the floor.
   for (const x of [HEX.cylX, -HEX.cylX]) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(cylR + 1.2, 0.5, 8, 28), metalDarkMat);
     ring.rotation.x = Math.PI / 2; ring.position.set(x, 0.6, cz);
     turnstileGroup.add(ring);
-    for (const pz of [cz + 4.5, cz - 4.5]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.8, cylH + 3, 0.8), metalDarkMat);
-      post.position.set(x, (cylH + 3) / 2, pz); post.castShadow = true;
-      turnstileGroup.add(post);
-    }
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 11), metalMat);
-    beam.position.set(x, cylH + 2.5, cz);
-    turnstileGroup.add(beam);
   }
 
   // ============================================================
-  //  F. PROPS — crates in the transition & outer layers
+  //  F. PROPS
   // ============================================================
   const propsGroup = new THREE.Group();
-  root.add(propsGroup);
-  const makeCrate = (x, z, w, h, d, mat) => {
-    const c = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || boxMat);
-    c.position.set(x, h / 2 + 0.12, z); c.castShadow = true;
-    c.rotation.y = (x * 0.013 + z * 0.017);
-    propsGroup.add(c);
-  };
-  makeCrate(28, -2, 6, 6, 6, boxMat);        // transition, east
-  makeCrate(-28, -2, 5, 7, 5, boxLightMat);  // transition, west
-  makeCrate(46, 18, 9, 8, 7, boxMat);        // outer layer
-  makeCrate(-48, 14, 8, 6, 8, boxLightMat);
-  makeCrate(34, 40, 6, 9, 6, boxMat);
-  makeCrate(-36, 44, 7, 5, 6, boxLightMat);
-  makeCrate(0, 52, 10, 7, 8, boxMat);
+  root.add(propsGroup);   // (scattered crates removed)
 
   // ============================================================
   //  G. 747 CRASH SITE & AMBULANCE (south, outside the compound)

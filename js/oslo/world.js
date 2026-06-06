@@ -282,12 +282,17 @@ export function buildWorld(scene) {
       (1 - fly) * 80,
       POS.plane.z - (1 - fly) * 300,
     );
-    // Turnstile spin: after TP picks up the gun (~0.45), blue CCW / red CW, two full turns,
-    // back to rest (opening facing out) at ~0.62 — when the two TP-2 figures appear.
+    // Turnstile: before a figure emerges the outward opening WINDS 180° to the far side
+    // (blue CCW / red CW), then UNWINDS back to front (the way it came) AS the figure
+    // appears. Two emergence beats: Neil 2 (~0.10) and TP 2 (~0.62).
     if (landmarks.turnstile) {
-      const ang = Math.PI * 4 * clamp01((t - 0.45) / 0.17);
-      landmarks.turnstile.red.rotation.y = -ang;
-      landmarks.turnstile.blue.rotation.y = ang;
+      const wr = (ta, w, r) => {           // 0→π over [ta-w-r, ta-r], then π→0 over [ta-r, ta]
+        if (t <= ta - w - r || t >= ta) return 0;
+        return t < ta - r ? Math.PI * (t - (ta - w - r)) / w : Math.PI * (1 - (t - (ta - r)) / r);
+      };
+      const ang = wr(0.10, 0.05, 0.05) + wr(0.62, 0.07, 0.07);
+      landmarks.turnstile.blue.rotation.y = ang;    // CCW out, CW back
+      landmarks.turnstile.red.rotation.y = -ang;    // CW out, CCW back
     }
 
     // Fire grows with time

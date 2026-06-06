@@ -42,56 +42,64 @@ export function buildEntities(scene, world) {
   const neil2i = makeUnit(COL.inverted, 1.0);  root.add(neil2i);
 
   // ── Choreography (3-min clock; t 0→1 = 0:00→3:00) ──────────────────────
-  // Beats: Neil 2 (red+blue) out of the turnstile first → red Neil 2 inner→mid→top-junction
-  // door & waits; blue Neil 2 retreats middle-left → TP+Neil in via the middle RIGHT door →
-  // inner room, TP grabs the gun → turnstile spins → red+blue TP 2 appear → TP fights blue
-  // TP 2, Neil chases red TP 2 (flees west); blue Neil 2 leaves via the middle right door.
-  // The future selves (TP 2 / Neil 2) retreat to the far ambulance by 3:00.
+  // Turn keyframes sit just INSIDE/OUTSIDE a doorway (offset along the door normal) so paths
+  // run straight THROUGH the gap — no clipping at the doorframe.
+  //   sideOut(d) = outward side of door d (away from ring centre); sideIn(d) = inward side.
   const D = DOORS;
-  const P = (pt, dz = 0, dx = 0) => up(pt.x + dx, 0, pt.z + dz);
-  const out = (pt) => up(pt.x * 1.25, 0, pt.z - 14);
-  const AMB = up(-35, 0, D.rollE.z - 34);          // far NW ambulance (retreat point)
-  const CONN_OUT = up(D.connTop.x, 0, D.connTop.z - 12);
+  const P = (d, dz = 0, dx = 0) => up(d.x + dx, 0, d.z + dz);
+  const sideOut = (d, k = 9) => up(d.x + d.nx * k, 0, d.z + d.nz * k);
+  const sideIn  = (d, k = 9) => up(d.x - d.nx * k, 0, d.z - d.nz * k);
+  const AMB = up(-38, 0, D.rollE.z - 30);          // far ambulance (retreat point)
 
-  // Past TP — in via middle-right door, into the inner room, grabs the gun, fights blue TP 2.
+  // Past TP — APPEARS at the outer-right door, waits, then (once red Neil 2 has left via the
+  // back door) enters the middle-right door → inner room, grabs the gun, fights blue TP 2.
   const tpFrames = [
-    { t: 0.24, p: out(D.rollE) }, { t: 0.31, p: P(D.rollE) }, { t: 0.39, p: P(D.midR) },
-    { t: 0.47, p: P(D.innE) }, { t: 0.55, p: P(D.redCyl, 7) },   // in the room — grabs the gun
-    { t: 0.68, p: up(-1, 0, D.blueCyl.z + 6) },                  // turns to fight blue TP 2
-    { t: 0.82, p: up(-6, 0, D.blueCyl.z + 3) }, { t: 1.00, p: P(D.innW) },
+    { t: 0.20, p: P(D.outR) }, { t: 0.30, p: sideIn(D.outR) },
+    { t: 0.46, p: sideOut(D.midR) },                       // waits just outside the (locked) middle door
+    { t: 0.51, p: sideIn(D.midR) }, { t: 0.56, p: sideOut(D.innE) }, { t: 0.61, p: sideIn(D.innE) },
+    { t: 0.65, p: P(D.redCyl, 9) },                        // grabs the gun (south of the red turnstile)
+    { t: 0.74, p: up(-1, 0, D.blueCyl.z + 6) },            // fights blue TP 2
+    { t: 0.88, p: up(-6, 0, D.blueCyl.z + 3) }, { t: 1.00, p: sideIn(D.innW) },
   ];
-  // Past Neil — in with TP, then chases the fleeing red TP 2 out to the west.
+  // Past Neil — appears with TP, enters behind him, then chases the fleeing red TP 2 west.
   const neilFrames = [
-    { t: 0.26, p: out(D.rollE) }, { t: 0.33, p: P(D.rollE) }, { t: 0.41, p: P(D.midR) },
-    { t: 0.49, p: P(D.innE) }, { t: 0.58, p: P(D.redCyl, 9) },
-    { t: 0.74, p: P(D.innW) }, { t: 0.86, p: P(D.midL) }, { t: 1.00, p: out(D.rollW) },
+    { t: 0.22, p: P(D.outR, 0, 4) }, { t: 0.32, p: sideIn(D.outR, 12) },
+    { t: 0.48, p: sideOut(D.midR, 12) }, { t: 0.53, p: sideIn(D.midR) },
+    { t: 0.62, p: sideIn(D.innE) }, { t: 0.68, p: P(D.redCyl, 11) },
+    { t: 0.78, p: sideIn(D.innW) }, { t: 0.86, p: sideOut(D.innW) },
+    { t: 0.93, p: sideOut(D.midL) }, { t: 1.00, p: sideOut(D.rollW) },
   ];
-  // Future forward Neil (red) — out of the turnstile, inner→mid→top-junction door, waits, then ambulance.
+  // Future forward Neil (red) — out of the turnstile → inner→transition→big layer → back
+  // (junction) door, waits behind it, then leaves via the right rolling door to the ambulance.
   const neil2fFrames = [
-    { t: 0.06, p: P(D.redCyl) }, { t: 0.16, p: P(D.innE) }, { t: 0.26, p: P(D.midR) },
-    { t: 0.37, p: P(D.connTop, 4) }, { t: 0.45, p: CONN_OUT }, { t: 0.86, p: CONN_OUT },
+    { t: 0.06, p: P(D.redCyl) }, { t: 0.13, p: sideOut(D.innE) }, { t: 0.19, p: sideIn(D.midR) },
+    { t: 0.24, p: sideOut(D.midR) }, { t: 0.32, p: sideIn(D.connTop) }, { t: 0.40, p: sideOut(D.connTop) },
+    { t: 0.80, p: sideOut(D.connTop) },                    // waits behind the back door
+    { t: 0.86, p: sideIn(D.connTop) }, { t: 0.92, p: sideIn(D.rollE) }, { t: 0.97, p: sideOut(D.rollE) },
     { t: 1.00, p: AMB },
   ];
-  // Future inverted Neil (blue) — appears at the turnstile, retreats middle-left, later out via the middle right door.
+  // Future inverted Neil (blue) — appears at the turnstile, retreats to the middle-left big
+  // layer, waits, then crosses out via the right rolling door to the ambulance.
   const neil2iFrames = [
-    { t: 0.06, p: P(D.blueCyl) }, { t: 0.18, p: P(D.innW) }, { t: 0.30, p: P(D.midL) },
-    { t: 0.66, p: P(D.midL) }, { t: 0.78, p: P(D.midR) }, { t: 0.88, p: out(D.rollE) },
-    { t: 1.00, p: AMB },
+    { t: 0.06, p: P(D.blueCyl) }, { t: 0.13, p: sideOut(D.innW) }, { t: 0.19, p: sideIn(D.midL) },
+    { t: 0.26, p: sideOut(D.midL) }, { t: 0.66, p: sideOut(D.midL) },   // retreats left & waits
+    { t: 0.80, p: sideIn(D.rollE, 16) }, { t: 0.90, p: sideOut(D.rollE) }, { t: 1.00, p: AMB },
   ];
-  // Future forward TP (red) — appears as the turnstile returns (~0.62), flees WEST, to the ambulance.
+  // Future forward TP (red) — appears as the turnstile returns (~0.62), flees WEST out the
+  // west rolling door to the ambulance.
   const tp2fFrames = [
-    { t: 0.62, p: P(D.redCyl) }, { t: 0.71, p: P(D.innW) }, { t: 0.81, p: P(D.midL) },
-    { t: 0.90, p: out(D.rollW) }, { t: 1.00, p: AMB },
+    { t: 0.62, p: P(D.redCyl) }, { t: 0.67, p: P(D.blueCyl, 2) }, { t: 0.72, p: sideOut(D.innW) },
+    { t: 0.80, p: sideOut(D.midL) }, { t: 0.90, p: sideOut(D.rollW) }, { t: 1.00, p: AMB },
   ];
   // Future inverted TP (blue) — appears at ~0.62, grapples past-TP, then retreats to the ambulance.
   const tp2iFrames = [
     { t: 0.62, p: P(D.blueCyl) }, { t: 0.72, p: up(-2, 0, D.blueCyl.z + 6) },
-    { t: 0.84, p: up(-7, 0, D.blueCyl.z + 2) }, { t: 0.92, p: P(D.midL) }, { t: 1.00, p: AMB },
+    { t: 0.84, p: up(-7, 0, D.blueCyl.z + 2) }, { t: 0.92, p: sideOut(D.midL) }, { t: 1.00, p: AMB },
   ];
 
   // Appearance windows (before/after → hidden).
   const VIS = {
-    tp: [0.24, 9], neil: [0.26, 9],
+    tp: [0.20, 9], neil: [0.22, 9],
     neil2f: [0.06, 9], neil2i: [0.06, 9],
     tp2f: [0.62, 9], tp2i: [0.62, 9],
   };

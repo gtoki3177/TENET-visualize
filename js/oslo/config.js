@@ -177,6 +177,14 @@ function pointOnEdge(ring, i, f) {
   const a = ring[i], b = ring[(i + 1) % ring.length];
   return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f };
 }
+// Door point + its OUTWARD normal (uz, -ux) — lets the choreography drop turn keyframes
+// just inside/outside a doorway (so paths go straight THROUGH the gap, no wall clipping).
+function doorAt(ring, i, f) {
+  const a = ring[i], b = ring[(i + 1) % ring.length];
+  const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1;
+  const ux = dx / L, uz = dz / L;
+  return { x: a[0] + ux * f * L, z: a[1] + uz * f * L, nx: uz, nz: -ux };
+}
 
 // Pull the inner + middle rings NORTH, toward the outer ring's top wall, so the merged
 // top connection isn't a big empty wedge. The OUTER ring stays put (offset from the base
@@ -199,7 +207,9 @@ export const HEX = {
   // Middle doors on the NE/NW edges (code 1/5 = user 3/2), down near the SE/SW (4/5) ends.
   // Code edge 1 (TR→RE): at→1 ≈ near RE; code edge 5 (WE→TL): at→0 ≈ near WE.
   midDoors:   { 1: [{ at: 0.82, w: 9 }], 5: [{ at: 0.18, w: 9 }] },   // right (east) + left (west)
-  outerDoors: { 0: [{ at: 0.26, w: 14 }, { at: 0.74, w: 14 }] },      // overwritten by the MERGE block below
+  // outer: NORTH rolling doors (edge 0, set by MERGE) + a RIGHT entry door on the NE edge
+  // (code 1, near RE — radially aligned with the middle right door) where TP & Neil appear.
+  outerDoors: { 0: [{ at: 0.26, w: 14 }, { at: 0.74, w: 14 }], 1: [{ at: 0.82, w: 9 }] },
 
   // Turnstile cylinders + partition (shifted north with the inner room)
   cylZ:   -4 - NORTHSHIFT,
@@ -245,21 +255,22 @@ RINGS.mid[1] = [RINGS.mid[1][0], _topZ];   // mid TR → onto outer top edge
   // [0]=west rolling door, [1]=east rolling door, [2]=junction door at the RIGHT merge
   // point (mid↔outer edge-1; just an opening, no shutter — red Neil 2 exits here).
   const connAt = atOf(xmR - 2);   // just inboard of the right (east) merge corner
-  HEX.outerDoors = { 0: [ { at: atOf(segCw), w: segW }, { at: atOf(segCe), w: segW }, { at: connAt, w: 9 } ] };
+  HEX.outerDoors[0] = [ { at: atOf(segCw), w: segW }, { at: atOf(segCe), w: segW }, { at: connAt, w: 9 } ];
   HEX._connAt = connAt;
 }
 
-// World positions of every doorway.
+// World positions of every doorway (each with its outward normal nx/nz).
 export const DOORS = {
-  rollW:   pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][0].at),  // outer NORTH rolling door, west
-  rollE:   pointOnEdge(RINGS.outer, 0, HEX.outerDoors[0][1].at),  // outer NORTH rolling door, east
-  connTop: pointOnEdge(RINGS.outer, 0, HEX._connAt),             // right junction door (red Neil 2 exits)
-  midR:    pointOnEdge(RINGS.mid,   1, HEX.midDoors[1][0].at),    // middle RIGHT (east) door — main entry
-  midL:    pointOnEdge(RINGS.mid,   5, HEX.midDoors[5][0].at),    // middle LEFT (west) door
-  innE:    pointOnEdge(RINGS.inner, 3, HEX.innerDoors[3][0].at),  // inner bottom, east (red)
-  innW:    pointOnEdge(RINGS.inner, 3, HEX.innerDoors[3][1].at),  // inner bottom, west (blue)
-  redCyl:  { x:  HEX.cylX, z: HEX.cylZ },
-  blueCyl: { x: -HEX.cylX, z: HEX.cylZ },
+  rollW:   doorAt(RINGS.outer, 0, HEX.outerDoors[0][0].at),  // outer NORTH rolling door, west
+  rollE:   doorAt(RINGS.outer, 0, HEX.outerDoors[0][1].at),  // outer NORTH rolling door, east
+  connTop: doorAt(RINGS.outer, 0, HEX._connAt),             // back/junction door (red Neil 2 exits)
+  outR:    doorAt(RINGS.outer, 1, HEX.outerDoors[1][0].at),  // outer RIGHT entry door (TP & Neil appear)
+  midR:    doorAt(RINGS.mid,   1, HEX.midDoors[1][0].at),    // middle RIGHT (east) door — main entry
+  midL:    doorAt(RINGS.mid,   5, HEX.midDoors[5][0].at),    // middle LEFT (west) door
+  innE:    doorAt(RINGS.inner, 3, HEX.innerDoors[3][0].at),  // inner bottom, east (red)
+  innW:    doorAt(RINGS.inner, 3, HEX.innerDoors[3][1].at),  // inner bottom, west (blue)
+  redCyl:  { x:  HEX.cylX, z: HEX.cylZ, nx: 0, nz: 0 },
+  blueCyl: { x: -HEX.cylX, z: HEX.cylZ, nx: 0, nz: 0 },
 };
 
 // ── Key Positions (world units) ─────────────────────────
