@@ -926,6 +926,30 @@
             margin-top: 6px;
         }
 
+        .clip-edit .ce-export-row {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--line2);
+        }
+
+        .clip-edit .ce-export-row button {
+            width: 100%;
+            font: inherit;
+            font-size: 10px;
+            letter-spacing: 0.04em;
+            padding: 6px 0;
+            cursor: pointer;
+            border: 1px solid var(--line);
+            border-radius: 3px;
+            background: #fff;
+            color: var(--ink3);
+        }
+
+        .clip-edit .ce-export-row button:hover {
+            color: var(--ink2);
+            border-color: var(--ink2);
+        }
+
         .play {
             width: 38px;
             height: 38px;
@@ -1575,6 +1599,9 @@
             <button id="ce-none-all" title="Mark this event as having no clip for every POV">No clip (all)</button>
         </div>
         <div class="ce-hint">POV other than God = falls back to God if empty · Enter to save · Esc to close</div>
+        <div class="ce-export-row">
+            <button id="ce-export" title="Download all clip assignments as clips.json — commit the file to make settings permanent">↓ Export all clips as JSON</button>
+        </div>
     </div>
 
     <script type="importmap">

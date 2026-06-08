@@ -171,13 +171,14 @@ let clipHideTimer = null;
 // Stored as { "<t.toFixed(3)>": { f: 'forward.mp4', r: 'reverse.mp4' } }.
 // Back-compat: old entries were plain strings (forward only) — read transparently.
 const CLIP_OVERRIDES_KEY = 'tenet_stalsk_clip_overrides';
+const CLIP_JSON_URL = 'clips/stalsk/clips.json';
 function loadClipOverrides() {
   try { return JSON.parse(localStorage.getItem(CLIP_OVERRIDES_KEY)) || {}; } catch (e) { return {}; }
 }
 function saveClipOverrides(map) {
   try { localStorage.setItem(CLIP_OVERRIDES_KEY, JSON.stringify(map)); } catch (e) {}
 }
-const clipOverrides = loadClipOverrides();
+const clipOverrides = {};
 // Remember the defaults from the EVENTS literal so Reset can restore them.
 const DEFAULT_CLIPS = EVENTS.map(e => ({
   f: e.clip, r: e.clipReverse,
@@ -203,7 +204,19 @@ function applyClipOverrides() {
     }
   });
 }
-applyClipOverrides();
+// Load clip assignments: clips.json (committed base) → localStorage draft on top.
+// Async is fine — clips only show on hover, always ready in time.
+applyClipOverrides();  // initial pass with hardcoded defaults
+fetch(CLIP_JSON_URL)
+  .then(r => r.ok ? r.json() : {})
+  .catch(() => ({}))
+  .then(base => {
+    const draft = loadClipOverrides();
+    // Repopulate: JSON file is the committed base; localStorage overrides for live edits.
+    for (const k in clipOverrides) delete clipOverrides[k];
+    Object.assign(clipOverrides, base, draft);
+    applyClipOverrides();
+  });
 
 // Reverse direction = timeline plays backward. Pick the reverse file when available.
 function isReverseDir() {
@@ -381,10 +394,26 @@ function noClipAllPOVs() {
   closeClipEditor();
 }
 
+// Export all clip assignments as a downloadable JSON file.
+// Save the file as clips/stalsk/clips.json and commit it — everyone gets your clips.
+function exportClipsJSON() {
+  const data = JSON.stringify(clipOverrides, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'clips-stalsk.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 ceSave.addEventListener('click', commitClipEditor);
 ceReset.addEventListener('click', resetClipEditor);
 ceNoneAll.addEventListener('click', noClipAllPOVs);
 ceX.addEventListener('click', closeClipEditor);
+document.getElementById('ce-export').addEventListener('click', exportClipsJSON);
 [ceInputF, ceInputR].forEach(inp => inp.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') commitClipEditor();
   else if (e.key === 'Escape') closeClipEditor();

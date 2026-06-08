@@ -1,0 +1,290 @@
+{
+  "0.000": {
+    "f": "clips/stalsk/landing.mp4",
+    "r": "clips/stalsk/blue-fly.mp4",
+    "views": {
+      "blue": {
+        "f": "clips/stalsk/blue-fly.mp4",
+        "r": ""
+      },
+      "neilFwd": {
+        "f": null,
+        "r": null
+      },
+      "neilBwd": {
+        "f": null,
+        "r": null
+      },
+      "neilAfter": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "0.280": {
+    "f": null,
+    "r": null,
+    "views": {
+      "blue": {
+        "f": null,
+        "r": null
+      },
+      "neilAfter": {
+        "f": null,
+        "r": null
+      },
+      "protagonist": {
+        "f": null,
+        "r": null
+      },
+      "red": {
+        "f": null,
+        "r": null
+      },
+      "neilFwd": {
+        "f": null,
+        "r": null
+      },
+      "neilBwd": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "-0.100": {
+    "f": null,
+    "r": null
+  },
+  "0.100": {
+    "views": {
+      "neilAfter": {
+        "f": null,
+        "r": null
+      },
+      "neilFwd": {
+        "f": null,
+        "r": null
+      },
+      "neilBwd": {
+        "f": null,
+        "r": null
+      },
+      "blue": {
+        "f": "clips/stalsk/blue-quit.mp4",
+        "r": ""
+      }
+    },
+    "f": "clips/stalsk/shoot.mp4",
+    "r": "clips/stalsk/blue-quit.mp4"
+  },
+  "0.180": {
+    "f": "clips/stalsk/heli.mp4",
+    "r": "clips/stalsk/heli-rev.mp4",
+    "views": {
+      "neilFwd": {
+        "f": null,
+        "r": null
+      },
+      "neilBwd": {
+        "f": null,
+        "r": null
+      },
+      "neilAfter": {
+        "f": null,
+        "r": null
+      },
+      "blue": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "0.400": {
+    "f": "clips/stalsk/neilfwd-revert.mp4",
+    "r": "clips/stalsk/neilbwd-revert.mp4",
+    "views": {
+      "red": {
+        "f": null,
+        "r": null
+      },
+      "blue": {
+        "f": null,
+        "r": null
+      },
+      "protagonist": {
+        "f": null,
+        "r": null
+      },
+      "neilBwd": {
+        "f": "clips/stalsk/neilbwd-revert.mp4",
+        "r": ""
+      },
+      "neilFwd": {
+        "f": "clips/stalsk/neilfwd-revert.mp4",
+        "r": ""
+      },
+      "neilAfter": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "1.050": {
+    "views": {
+      "neilAfter": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "0.540": {
+    "views": {
+      "neilBwd": {
+        "f": "clips/stalsk/neilbwd-heli.mp4",
+        "r": ""
+      },
+      "neilFwd": {
+        "f": "clips/stalsk/neilfwd-beep.mp4",
+        "r": ""
+      }
+    },
+    "f": "clips/stalsk/beep.mp4",
+    "r": "clips/stalsk/beep-rev.mp4"
+  },
+  "0.500": {
+    "f": "clips/stalsk/build.mp4",
+    "r": "clips/stalsk/build-rev.mp4",
+    "views": {
+      "neilFwd": {
+        "f": null,
+        "r": null
+      },
+      "blue": {
+        "f": "clips/stalsk/build-rev.mp4",
+        "r": ""
+      },
+      "neilBwd": {
+        "f": null,
+        "r": null
+      },
+      "neilAfter": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "0.660": {
+    "views": {
+      "neilFwd": {
+        "f": null,
+        "r": null
+      },
+      "neilBwd": {
+        "f": null,
+        "r": null
+      },
+      "neilAfter": {
+        "f": null,
+        "r": null
+      },
+      "blue": {
+        "f": null,
+        "r": null
+      },
+      "red": {
+        "f": null,
+        "r": null
+      }
+    },
+    "f": "clips/stalsk/locked.mp4",
+    "r": "clips/stalsk/locked-rev.mp4"
+  },
+  "0.820": {
+    "f": "clips/stalsk/neilfwd-drive.mp4",
+    "r": "clips/stalsk/car_rev.mp4",
+    "views": {
+      "red": {
+        "f": null,
+        "r": null
+      },
+      "blue": {
+        "f": "clips/stalsk/car_rev.mp4",
+        "r": ""
+      },
+      "protagonist": {
+        "f": "clips/stalsk/kill.mp4",
+        "r": ""
+      },
+      "neilBwd": {
+        "f": "clips/stalsk/car_rev.mp4",
+        "r": ""
+      },
+      "neilFwd": {
+        "f": "clips/stalsk/neilfwd-drive.mp4",
+        "r": ""
+      },
+      "neilAfter": {
+        "f": "clips/stalsk/neilafter.mp4",
+        "r": ""
+      }
+    }
+  },
+  "0.740": {
+    "views": {
+      "red": {
+        "f": null,
+        "r": null
+      }
+    },
+    "f": null,
+    "r": null
+  },
+  "0.900": {
+    "f": "clips/stalsk/neilfwd-rope.mp4",
+    "r": "clips/stalsk/blue-running.mp4",
+    "views": {
+      "blue": {
+        "f": "clips/stalsk/blue-running.mp4",
+        "r": ""
+      },
+      "red": {
+        "f": null,
+        "r": null
+      },
+      "neilAfter": {
+        "f": null,
+        "r": null
+      },
+      "neilBwd": {
+        "f": "clips/stalsk/blue-running.mp4",
+        "r": ""
+      }
+    }
+  },
+  "1.000": {
+    "f": "clips/stalsk/neilfwd-end.mp4",
+    "r": "clips/stalsk/bluelanding.mp4",
+    "views": {
+      "neilBwd": {
+        "f": "clips/stalsk/bluelanding.mp4",
+        "r": ""
+      },
+      "blue": {
+        "f": "clips/stalsk/bluelanding.mp4",
+        "r": ""
+      },
+      "neilAfter": {
+        "f": null,
+        "r": null
+      },
+      "red": {
+        "f": null,
+        "r": null
+      },
+      "neilFwd": {
+        "f": "",
+        "r": ""
+      }
+    }
+  }
+}
