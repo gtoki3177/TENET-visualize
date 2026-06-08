@@ -182,9 +182,12 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
     pointer-events: none; display: flex; align-items: center; justify-content: center;
     flex-direction: column; gap: 10px; opacity: 0; transition: opacity 80ms; }
   .clip-overlay.on { opacity: 1; }
-  .clip-overlay video { width: 80vw; max-width: 1200px; max-height: calc(100vh - 280px);
-    aspect-ratio: 16/9; border-radius: 6px; box-shadow: 0 12px 48px rgba(0,0,0,0.45);
-    background: #000; object-fit: contain; }
+  /* Player ratio crops the baked-in letterbox of the 1280x720 source.
+     Lower aspect-ratio number = taller player. 2.39 = full cinematic crop,
+     2.0 = taller (some bars may show), 16/9 = no cropping at all. */
+  .clip-overlay video { width: 70vw; max-width: min(1100px, calc((100vh - 240px) * 16 / 9));
+    aspect-ratio: 16 / 9; border-radius: 6px; box-shadow: 0 12px 48px rgba(0,0,0,0.45);
+    background: #000; display: block; object-fit: contain; }
   .clip-overlay .clip-cap { font-family: 'JetBrains Mono', monospace; font-size: 11px;
     letter-spacing: 0.07em; color: rgba(255,255,255,0.85); background: rgba(0,0,0,0.52);
     padding: 4px 12px; border-radius: 20px; max-width: 60vw; text-align: center; }
@@ -206,7 +209,16 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
     display: flex; justify-content: space-between; align-items: center; }
   .clip-edit .ce-x { border: 0; background: transparent; color: var(--ink3); cursor: pointer; font-size: 14px; }
   .clip-edit .ce-title { font-size: 12px; color: var(--ink2); margin-bottom: 8px; line-height: 1.4; }
-  .clip-edit .ce-row { display: flex; gap: 6px; }
+  .clip-edit .ce-field { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .clip-edit .ce-field label { font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.08em; color: var(--ink2); width: 72px; flex: 0 0 auto; }
+  .clip-edit .ce-row { display: flex; gap: 6px; margin-top: 4px; }
+  .clip-edit select { flex: 1; font: inherit; font-size: 12px; padding: 6px 8px;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
+  .clip-edit .ce-none-label { display: flex; align-items: center; gap: 6px; font-size: 11px;
+    color: var(--ink2); font-family: inherit; letter-spacing: 0; width: auto; cursor: pointer; }
+  .clip-edit .ce-none-label input { flex: 0 0 auto; width: 14px; height: 14px; margin: 0; cursor: pointer; }
+  .clip-edit input:disabled { background: #f4f5f7; color: var(--ink3); cursor: not-allowed; }
   .clip-edit input { flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px;
     padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
   .clip-edit button { font: inherit; font-size: 11px; padding: 6px 10px; cursor: pointer;
@@ -434,27 +446,35 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
         <li>The inverted self retreats back toward the turnstile. Neil pulls the Protagonist out as the freeport burns.</li>
         <li><b>Switch views</b> (left) to ride with the forward or inverted Protagonist, or with Neil. The subjective timeline for the inverted self runs the clock backward.</li>
       </ul>
-      <button class="intro-close" id="intro-close">Enter the freeport</button>
+      <button class="intro-close" id="intro-close" onclick="document.getElementById('intro').classList.add('hidden');try{localStorage.setItem('tenet_oslo_seen','1')}catch(e){}">Enter the freeport</button>
       <div class="intro-note">Part of a larger TENET battle timeline visualization. Switch scenes via the tabs above.</div>
     </div>
   </div>
 
   <!-- Clip preview overlay (shown on event-title hover) -->
   <div class="clip-overlay" id="clip-overlay">
-    <video id="clip-video" muted loop playsinline preload="none"></video>
+    <video id="clip-video" loop playsinline preload="metadata"></video>
     <div class="clip-cap" id="clip-cap"></div>
   </div>
 
   <!-- Clip-path editor (opened in edit mode by clicking the event title) -->
   <div class="clip-edit" id="clip-edit">
-    <div class="ce-head"><span>Clip file</span><button class="ce-x" id="ce-x">×</button></div>
+    <div class="ce-head"><span>Clip files</span><button class="ce-x" id="ce-x">×</button></div>
     <div class="ce-title" id="ce-title"></div>
+    <div class="ce-field"><label>POV</label>
+      <select id="ce-view"></select></div>
+    <div class="ce-field ce-none-row"><label></label>
+      <label class="ce-none-label"><input type="checkbox" id="ce-none" /> No clip available for this POV</label></div>
+    <div class="ce-field"><label>Forward →</label>
+      <input type="text" id="ce-input-f" placeholder="clips/oslo/01.mp4" /></div>
+    <div class="ce-field"><label>Reverse ←</label>
+      <input type="text" id="ce-input-r" placeholder="clips/oslo/01-rev.mp4" /></div>
     <div class="ce-row">
-      <input type="text" id="ce-input" placeholder="clips/oslo/01.mp4" />
       <button class="ce-save" id="ce-save">Save</button>
-      <button id="ce-reset" title="Restore default path">Reset</button>
+      <button id="ce-reset" title="Restore default path for this POV">Reset</button>
+      <button id="ce-none-all" title="Mark this event as having no clip for every POV">No clip (all)</button>
     </div>
-    <div class="ce-hint">Enter to save · Esc to close · empty path disables clip</div>
+    <div class="ce-hint">POV other than God = falls back to God if empty · Enter to save · Esc to close</div>
   </div>
 
   <script type="importmap">

@@ -20,20 +20,20 @@ const NEIL_EMERGE = 0.40;  // forward/inverted Neil step out of the turnstile he
 
 // Key beats. t in [T_MIN,T_MAX]; t=0→Red 10:00, t=1→detonation.
 const EVENTS = [
-  { t: -0.10, title: 'Both teams airborne — Red Chinooks descending on main LZ, Blue Team inbound on hypocenter (time-inverted)', loc: 'lz', clip: 'clips/stalsk/01.mp4' },
-  { t: 0.00, title: 'Red Team drops onto the battlefield; inverted Blue Team airlifts out — injured, into the containers (seen in reverse)', loc: 'lz', clip: 'clips/stalsk/02.mp4' },
-  { t: 0.10, title: 'Battle erupts — Red sees fire & ammo running both forward and backward (inverted Blue & Stalsk fire)', loc: 'turnstile', clip: 'clips/stalsk/03.mp4' },
-  { t: 0.18, title: 'Protagonist spots Volkov’s helicopter; the splinter unit (TP & Ives only) breaks for the hypocenter', loc: 'cave', clip: 'clips/stalsk/04.mp4' },
-  { t: 0.28, title: 'They blow a building as a distraction — Red watches it heal bottom-up (Blue’s reversed shot)…', loc: 'building', clip: 'clips/stalsk/05.mp4' },
-  { t: 0.40, title: 'Neil reverts at the turnstile (blue → red) to move forward and save them', loc: 'turnstile', clip: 'clips/stalsk/06.mp4' },
-  { t: 0.50, title: '…then Red destroys it top-down — the double-exploding building (5:00)', loc: 'building', clip: 'clips/stalsk/07.mp4' },
-  { t: 0.54, title: 'TP & Ives run in, missing Neil’s honking car; a tripwire seals the entrance — trapped', loc: 'cave', clip: 'clips/stalsk/08.mp4' },
-  { t: 0.66, title: 'A locked gate; a dead soldier with a blue armband lies beyond it; Volkov holds the Algorithm', loc: 'vault', clip: 'clips/stalsk/09.mp4' },
-  { t: 0.74, title: 'Sator orders the kill — the dead soldier (Neil, his After self) revives & takes the bullet; it reverses into the gun', loc: 'vault', clip: 'clips/stalsk/10.mp4' },
-  { t: 0.82, title: 'The soldier opens the gate; TP & Ives wrest the Algorithm from Volkov, then he flees backward', loc: 'vault', clip: 'clips/stalsk/11.mp4' },
-  { t: 0.90, title: 'Two ropes drop — Neil lifts the pair out as the bomb detonates', loc: 'detonation', clip: 'clips/stalsk/12.mp4' },
-  { t: 1.00, title: 'Detonation — the hypocenter is sealed, the Algorithm hidden from the future', loc: 'detonation', clip: 'clips/stalsk/13.mp4' },
-  { t: 1.05, title: 'Neil walks back to the turnstile — enters, inverts, becomes the After self who locked the gate (story closed)', loc: 'turnstile', clip: 'clips/stalsk/14.mp4' },
+  { t: -0.10, title: 'Both teams airborne — Red Chinooks descending on main LZ, Blue Team inbound on hypocenter (time-inverted)', loc: 'lz', clip: 'clips/stalsk/01.mp4', clipReverse: 'clips/stalsk/01-rev.mp4' },
+  { t: 0.00, title: 'Red Team drops onto the battlefield; inverted Blue Team airlifts out — injured, into the containers (seen in reverse)', loc: 'lz', clip: 'clips/stalsk/02.mp4', clipReverse: 'clips/stalsk/02-rev.mp4' },
+  { t: 0.10, title: 'Battle erupts — Red sees fire & ammo running both forward and backward (inverted Blue & Stalsk fire)', loc: 'turnstile', clip: 'clips/stalsk/03.mp4', clipReverse: 'clips/stalsk/03-rev.mp4' },
+  { t: 0.18, title: 'Protagonist spots Volkov’s helicopter; the splinter unit (TP & Ives only) breaks for the hypocenter', loc: 'cave', clip: 'clips/stalsk/04.mp4', clipReverse: 'clips/stalsk/04-rev.mp4' },
+  { t: 0.28, title: 'They blow a building as a distraction — Red watches it heal bottom-up (Blue’s reversed shot)…', loc: 'building', clip: 'clips/stalsk/05.mp4', clipReverse: 'clips/stalsk/05-rev.mp4' },
+  { t: 0.40, title: 'Neil reverts at the turnstile (blue → red) to move forward and save them', loc: 'turnstile', clip: 'clips/stalsk/06.mp4', clipReverse: 'clips/stalsk/06-rev.mp4' },
+  { t: 0.50, title: '…then Red destroys it top-down — the double-exploding building (5:00)', loc: 'building', clip: 'clips/stalsk/07.mp4', clipReverse: 'clips/stalsk/07-rev.mp4' },
+  { t: 0.54, title: 'TP & Ives run in, missing Neil’s honking car; a tripwire seals the entrance — trapped', loc: 'cave', clip: 'clips/stalsk/08.mp4', clipReverse: 'clips/stalsk/08-rev.mp4' },
+  { t: 0.66, title: 'A locked gate; a dead soldier with a blue armband lies beyond it; Volkov holds the Algorithm', loc: 'vault', clip: 'clips/stalsk/09.mp4', clipReverse: 'clips/stalsk/09-rev.mp4' },
+  { t: 0.74, title: 'Sator orders the kill — the dead soldier (Neil, his After self) revives & takes the bullet; it reverses into the gun', loc: 'vault', clip: 'clips/stalsk/10.mp4', clipReverse: 'clips/stalsk/10-rev.mp4' },
+  { t: 0.82, title: 'The soldier opens the gate; TP & Ives wrest the Algorithm from Volkov, then he flees backward', loc: 'vault', clip: 'clips/stalsk/11.mp4', clipReverse: 'clips/stalsk/11-rev.mp4' },
+  { t: 0.90, title: 'Two ropes drop — Neil lifts the pair out as the bomb detonates', loc: 'detonation', clip: 'clips/stalsk/12.mp4', clipReverse: 'clips/stalsk/12-rev.mp4' },
+  { t: 1.00, title: 'Detonation — the hypocenter is sealed, the Algorithm hidden from the future', loc: 'detonation', clip: 'clips/stalsk/13.mp4', clipReverse: 'clips/stalsk/13-rev.mp4' },
+  { t: 1.05, title: 'Neil walks back to the turnstile — enters, inverts, becomes the After self who locked the gate (story closed)', loc: 'turnstile', clip: 'clips/stalsk/14.mp4', clipReverse: 'clips/stalsk/14-rev.mp4' },
 ];
 
 // ---------- Scene ----------
@@ -167,7 +167,9 @@ const clipVideo   = document.getElementById('clip-video');
 const clipCap     = document.getElementById('clip-cap');
 let clipHideTimer = null;
 
-// Per-event clip path overrides — editable in edit mode, persisted to localStorage.
+// Per-event clip-path overrides — editable in edit mode, persisted to localStorage.
+// Stored as { "<t.toFixed(3)>": { f: 'forward.mp4', r: 'reverse.mp4' } }.
+// Back-compat: old entries were plain strings (forward only) — read transparently.
 const CLIP_OVERRIDES_KEY = 'tenet_stalsk_clip_overrides';
 function loadClipOverrides() {
   try { return JSON.parse(localStorage.getItem(CLIP_OVERRIDES_KEY)) || {}; } catch (e) { return {}; }
@@ -176,27 +178,81 @@ function saveClipOverrides(map) {
   try { localStorage.setItem(CLIP_OVERRIDES_KEY, JSON.stringify(map)); } catch (e) {}
 }
 const clipOverrides = loadClipOverrides();
-const DEFAULT_CLIPS = EVENTS.map(e => e.clip);
+// Remember the defaults from the EVENTS literal so Reset can restore them.
+const DEFAULT_CLIPS = EVENTS.map(e => ({
+  f: e.clip, r: e.clipReverse,
+  views: e.clipByView ? JSON.parse(JSON.stringify(e.clipByView)) : {}
+}));
 function applyClipOverrides() {
   EVENTS.forEach((ev, i) => {
     const key = ev.t.toFixed(3);
-    if (key in clipOverrides) ev.clip = clipOverrides[key] || null;
-    else ev.clip = DEFAULT_CLIPS[i];
+    const o = clipOverrides[key];
+    // Start from defaults, then layer the override on top.
+    ev.clip        = DEFAULT_CLIPS[i].f;
+    ev.clipReverse = DEFAULT_CLIPS[i].r;
+    ev.clipByView  = JSON.parse(JSON.stringify(DEFAULT_CLIPS[i].views));
+    if (typeof o === 'string') { ev.clip = o; }
+    else if (o && typeof o === 'object') {
+      if ('f' in o) ev.clip = o.f || null;
+      if ('r' in o) ev.clipReverse = o.r || null;
+      if (o.views && typeof o.views === 'object') {
+        for (const v in o.views) {
+          ev.clipByView[v] = Object.assign({}, ev.clipByView[v], o.views[v]);
+        }
+      }
+    }
   });
 }
 applyClipOverrides();
 
+// Reverse direction = timeline plays backward. Pick the reverse file when available.
+function isReverseDir() {
+  const b = document.getElementById('dir-toggle');
+  return b && b.dataset.dir === '-1';
+}
+// Current camera POV: 'god' (default), or a character key like 'protagonist', 'neilFwd', etc.
+function currentView() {
+  const active = document.querySelector('#view-panel .ctrl-item.active');
+  return active ? active.dataset.value : 'god';
+}
+// pickClipPath returns:
+//   string  → path to play
+//   null    → explicit "no clip available" (caller shows placeholder)
+//   ''      → nothing set (silently do nothing)
+function pickClipPath(ev) {
+  const dir = isReverseDir() ? 'r' : 'f';
+  const view = currentView();
+  if (view !== 'god' && ev.clipByView && ev.clipByView[view]) {
+    const vc = ev.clipByView[view];
+    if (dir in vc) return vc[dir];
+  }
+  const godPath = dir === 'r' ? ev.clipReverse : ev.clip;
+  if (godPath === null) return null;
+  if (godPath) return godPath;
+  if (dir === 'r' && ev.clip) return ev.clip;
+  return '';
+}
+
 function showClip(ev) {
-  if (!ev.clip) return;
+  const path = pickClipPath(ev);
+  // No clip set ('' fall-back chain exhausted) OR explicit no-clip (null) → silently do nothing
+  if (!path) return;
   clearTimeout(clipHideTimer);
-  const abs = new URL(ev.clip, location.href).href;
-  if (clipVideo.src !== abs) { clipVideo.src = ev.clip; clipVideo.currentTime = 0; }
-  clipVideo.play().catch(() => {});
+  const abs = new URL(path, location.href).href;
+  if (clipVideo.src !== abs) { clipVideo.src = path; clipVideo.currentTime = 0; }
   clipCap.textContent = ev.title;
   clipOverlay.classList.add('on');
+  clipVideo.muted = false;
+  clipVideo.play().catch(() => {
+    clipVideo.muted = true;
+    clipVideo.play().catch(() => {});
+  });
 }
 function hideClip() {
-  clipHideTimer = setTimeout(() => { clipOverlay.classList.remove('on'); clipVideo.pause(); }, 80);
+  clipHideTimer = setTimeout(() => {
+    clipOverlay.classList.remove('on');
+    clipVideo.pause();
+  }, 80);
 }
 const eventBox = elEvent.closest('.event');
 eventBox.addEventListener('mouseenter', () => showClip(currentEvent()));
@@ -206,19 +262,58 @@ eventBox.addEventListener('mouseleave', hideClip);
 const editBtnEl  = document.getElementById('edit-btn');
 const ceBox      = document.getElementById('clip-edit');
 const ceTitle    = document.getElementById('ce-title');
-const ceInput    = document.getElementById('ce-input');
+const ceViewSel  = document.getElementById('ce-view');
+const ceInputF   = document.getElementById('ce-input-f');
+const ceInputR   = document.getElementById('ce-input-r');
+const ceNone     = document.getElementById('ce-none');
 const ceSave     = document.getElementById('ce-save');
 const ceReset    = document.getElementById('ce-reset');
+const ceNoneAll  = document.getElementById('ce-none-all');
 const ceX        = document.getElementById('ce-x');
 let ceEditingEv  = null;
+
+// Populate the view-picker dropdown from the existing view-panel buttons,
+// so adding/removing views in the panel automatically updates the editor.
+function populateViewSelect() {
+  const opts = [['god', 'God (default)']];
+  document.querySelectorAll('#view-panel .ctrl-item').forEach(btn => {
+    const v = btn.dataset.value;
+    if (!v || v === 'god') return;
+    const label = btn.querySelector('.ctrl-name')?.textContent || v;
+    opts.push([v, label]);
+  });
+  ceViewSel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+}
+populateViewSelect();
+
+function inputsForView(ev, view) {
+  if (view === 'god') {
+    const isNone = ev.clip === null && ev.clipReverse === null;
+    return { f: ev.clip || '', r: ev.clipReverse || '', isNone };
+  }
+  const v = (ev.clipByView && ev.clipByView[view]) || {};
+  const isNone = ('f' in v && v.f === null) && ('r' in v && v.r === null);
+  return { f: v.f || '', r: v.r || '', isNone };
+}
+
+function syncNoneState() {
+  const on = ceNone.checked;
+  ceInputF.disabled = on;
+  ceInputR.disabled = on;
+  if (on) { ceInputF.value = ''; ceInputR.value = ''; }
+}
 
 function isEditMode() { return editBtnEl && editBtnEl.classList.contains('active'); }
 function openClipEditor(ev) {
   ceEditingEv = ev;
   ceTitle.textContent = ev.title;
-  ceInput.value = ev.clip || '';
+  ceViewSel.value = currentView();
+  const { f, r, isNone } = inputsForView(ev, ceViewSel.value);
+  ceInputF.value = f; ceInputR.value = r;
+  ceNone.checked = isNone;
+  syncNoneState();
   ceBox.classList.add('on');
-  setTimeout(() => { ceInput.focus(); ceInput.select(); }, 0);
+  setTimeout(() => { (isNone ? ceNone : ceInputF).focus(); if (!isNone) ceInputF.select(); }, 0);
 }
 function closeClipEditor() {
   ceBox.classList.remove('on');
@@ -227,7 +322,18 @@ function closeClipEditor() {
 function commitClipEditor() {
   if (!ceEditingEv) return;
   const key = ceEditingEv.t.toFixed(3);
-  clipOverrides[key] = ceInput.value.trim();
+  const view = ceViewSel.value;
+  const cur = clipOverrides[key];
+  const base = (typeof cur === 'string') ? { f: cur } : (cur && typeof cur === 'object' ? cur : {});
+  const f = ceNone.checked ? null : ceInputF.value.trim();
+  const r = ceNone.checked ? null : ceInputR.value.trim();
+  if (view === 'god') {
+    base.f = f; base.r = r;
+  } else {
+    base.views = base.views || {};
+    base.views[view] = { f, r };
+  }
+  clipOverrides[key] = base;
   saveClipOverrides(clipOverrides);
   applyClipOverrides();
   closeClipEditor();
@@ -235,22 +341,54 @@ function commitClipEditor() {
 function resetClipEditor() {
   if (!ceEditingEv) return;
   const key = ceEditingEv.t.toFixed(3);
-  delete clipOverrides[key];
+  const view = ceViewSel.value;
+  const cur = clipOverrides[key];
+  if (cur && typeof cur === 'object') {
+    if (view === 'god') { delete cur.f; delete cur.r; }
+    else if (cur.views) { delete cur.views[view]; }
+    if (!cur.f && cur.f !== null && !cur.r && cur.r !== null && (!cur.views || Object.keys(cur.views).length === 0)) {
+      delete clipOverrides[key];
+    }
+  } else {
+    delete clipOverrides[key];
+  }
   saveClipOverrides(clipOverrides);
   applyClipOverrides();
-  ceInput.value = ceEditingEv.clip || '';
+  const { f, r, isNone } = inputsForView(ceEditingEv, view);
+  ceInputF.value = f; ceInputR.value = r;
+  ceNone.checked = isNone;
+  syncNoneState();
 }
+ceViewSel.addEventListener('change', () => {
+  if (!ceEditingEv) return;
+  const { f, r, isNone } = inputsForView(ceEditingEv, ceViewSel.value);
+  ceInputF.value = f; ceInputR.value = r;
+  ceNone.checked = isNone;
+  syncNoneState();
+});
+ceNone.addEventListener('change', syncNoneState);
 eventBox.addEventListener('click', () => { if (isEditMode()) openClipEditor(currentEvent()); });
 function syncEditClass() { document.body.classList.toggle('editing', isEditMode()); }
 editBtnEl && editBtnEl.addEventListener('click', () => setTimeout(syncEditClass, 0));
 syncEditClass();
+// Mark this entire event as no-clip across every POV in one click.
+function noClipAllPOVs() {
+  if (!ceEditingEv) return;
+  const key = ceEditingEv.t.toFixed(3);
+  clipOverrides[key] = { f: null, r: null };
+  saveClipOverrides(clipOverrides);
+  applyClipOverrides();
+  closeClipEditor();
+}
+
 ceSave.addEventListener('click', commitClipEditor);
 ceReset.addEventListener('click', resetClipEditor);
+ceNoneAll.addEventListener('click', noClipAllPOVs);
 ceX.addEventListener('click', closeClipEditor);
-ceInput.addEventListener('keydown', (e) => {
+[ceInputF, ceInputR].forEach(inp => inp.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') commitClipEditor();
   else if (e.key === 'Escape') closeClipEditor();
-});
+}));
 
 function setT(v, fromPlay = false) {
   t = Math.max(T_MIN, Math.min(T_MAX, v));

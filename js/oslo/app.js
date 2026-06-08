@@ -15,13 +15,13 @@ const T_MAX =  1.05;
 
 // 7 key beats
 const EVENTS = [
-  { t: 0.00, title: 'A hijacked 747 explodes outside the freeport — the distraction', loc: 'crash', clip: 'clips/oslo/01.mp4' },
-  { t: 0.15, title: 'Protagonist & Neil slip in through the east rolling door', loc: 'hallway', clip: 'clips/oslo/02.mp4' },
-  { t: 0.30, title: 'They spiral in to the vault — the Rotas turnstile is running', loc: 'turnstile', clip: 'clips/oslo/03.mp4' },
-  { t: 0.45, title: 'A masked figure bursts backward from the turnstile — the Protagonist doesn\'t know it\'s himself', loc: 'turnstile', clip: 'clips/oslo/04.mp4' },
-  { t: 0.60, title: 'The fight at the turnstile — forward grapples inverted; bullets un-fire', loc: 'turnstile', clip: 'clips/oslo/05.mp4' },
-  { t: 0.80, title: 'The inverted self backs into the blue turnstile and inverts away', loc: 'turnstile', clip: 'clips/oslo/06.mp4' },
-  { t: 1.00, title: 'Neil pulls the Protagonist out — the freeport burns behind them', loc: 'crash', clip: 'clips/oslo/07.mp4' },
+  { t: 0.00, title: 'A hijacked 747 explodes outside the freeport — the distraction', loc: 'crash', clip: 'clips/oslo/01.mp4', clipReverse: 'clips/oslo/01-rev.mp4' },
+  { t: 0.15, title: 'Protagonist & Neil slip in through the east rolling door', loc: 'hallway', clip: 'clips/oslo/02.mp4', clipReverse: 'clips/oslo/02-rev.mp4' },
+  { t: 0.30, title: 'They spiral in to the vault — the Rotas turnstile is running', loc: 'turnstile', clip: 'clips/oslo/03.mp4', clipReverse: 'clips/oslo/03-rev.mp4' },
+  { t: 0.45, title: 'A masked figure bursts backward from the turnstile — the Protagonist doesn\'t know it\'s himself', loc: 'turnstile', clip: 'clips/oslo/04.mp4', clipReverse: 'clips/oslo/04-rev.mp4' },
+  { t: 0.60, title: 'The fight at the turnstile — forward grapples inverted; bullets un-fire', loc: 'turnstile', clip: 'clips/oslo/05.mp4', clipReverse: 'clips/oslo/05-rev.mp4' },
+  { t: 0.80, title: 'The inverted self backs into the blue turnstile and inverts away', loc: 'turnstile', clip: 'clips/oslo/06.mp4', clipReverse: 'clips/oslo/06-rev.mp4' },
+  { t: 1.00, title: 'Neil pulls the Protagonist out — the freeport burns behind them', loc: 'crash', clip: 'clips/oslo/07.mp4', clipReverse: 'clips/oslo/07-rev.mp4' },
 ];
 
 // ---------- Scene ----------
@@ -160,8 +160,9 @@ const clipVideo   = document.getElementById('clip-video');
 const clipCap     = document.getElementById('clip-cap');
 let clipHideTimer = null;
 
-// Per-event clip path overrides — editable in edit mode, persisted to localStorage.
-// Keyed by t.toFixed(3) so editing survives event reordering as long as t-values stay.
+// Per-event clip-path overrides — editable in edit mode, persisted to localStorage.
+// Stored as { "<t.toFixed(3)>": { f: 'forward.mp4', r: 'reverse.mp4' } }.
+// Back-compat: old entries were plain strings (forward only) — read transparently.
 const CLIP_OVERRIDES_KEY = 'tenet_oslo_clip_overrides';
 function loadClipOverrides() {
   try { return JSON.parse(localStorage.getItem(CLIP_OVERRIDES_KEY)) || {}; } catch (e) { return {}; }
@@ -170,27 +171,85 @@ function saveClipOverrides(map) {
   try { localStorage.setItem(CLIP_OVERRIDES_KEY, JSON.stringify(map)); } catch (e) {}
 }
 const clipOverrides = loadClipOverrides();
-const DEFAULT_CLIPS = EVENTS.map(e => e.clip);   // remember originals for Reset
+// Remember the defaults from the EVENTS literal so Reset can restore them.
+const DEFAULT_CLIPS = EVENTS.map(e => ({
+  f: e.clip, r: e.clipReverse,
+  views: e.clipByView ? JSON.parse(JSON.stringify(e.clipByView)) : {}
+}));
 function applyClipOverrides() {
   EVENTS.forEach((ev, i) => {
     const key = ev.t.toFixed(3);
-    if (key in clipOverrides) ev.clip = clipOverrides[key] || null;
-    else ev.clip = DEFAULT_CLIPS[i];
+    const o = clipOverrides[key];
+    // Start from defaults, then layer the override on top.
+    ev.clip        = DEFAULT_CLIPS[i].f;
+    ev.clipReverse = DEFAULT_CLIPS[i].r;
+    ev.clipByView  = JSON.parse(JSON.stringify(DEFAULT_CLIPS[i].views));
+    if (typeof o === 'string') { ev.clip = o; }
+    else if (o && typeof o === 'object') {
+      if ('f' in o) ev.clip = o.f || null;
+      if ('r' in o) ev.clipReverse = o.r || null;
+      if (o.views && typeof o.views === 'object') {
+        for (const v in o.views) {
+          ev.clipByView[v] = Object.assign({}, ev.clipByView[v], o.views[v]);
+        }
+      }
+    }
   });
 }
 applyClipOverrides();
 
+// Reverse direction = timeline plays backward. Pick the reverse file when available.
+function isReverseDir() {
+  const b = document.getElementById('dir-toggle');
+  return b && b.dataset.dir === '-1';
+}
+// Current camera POV: 'god' (default), or a character key like 'tp', 'neil', etc.
+function currentView() {
+  const active = document.querySelector('#view-panel .ctrl-item.active');
+  return active ? active.dataset.value : 'god';
+}
+// pickClipPath returns:
+//   string  → path to play
+//   null    → explicit "no clip available" (caller shows placeholder)
+//   ''      → nothing set (silently do nothing)
+//
+// A POV-specific value of null is "explicit no-clip" and disables the god fallback.
+// A POV-specific value of undefined/missing falls back to the god default.
+function pickClipPath(ev) {
+  const dir = isReverseDir() ? 'r' : 'f';
+  const view = currentView();
+  if (view !== 'god' && ev.clipByView && ev.clipByView[view]) {
+    const vc = ev.clipByView[view];
+    if (dir in vc) return vc[dir];     // string OR null (explicit) — don't fall back to god
+  }
+  const godPath = dir === 'r' ? ev.clipReverse : ev.clip;
+  if (godPath === null) return null;
+  if (godPath) return godPath;
+  // Fallback: reverse direction with no reverse file → try forward
+  if (dir === 'r' && ev.clip) return ev.clip;
+  return '';
+}
+
 function showClip(ev) {
-  if (!ev.clip) return;
+  const path = pickClipPath(ev);
+  // No clip set ('' fall-back chain exhausted) OR explicit no-clip (null) → silently do nothing
+  if (!path) return;
   clearTimeout(clipHideTimer);
-  const abs = new URL(ev.clip, location.href).href;
-  if (clipVideo.src !== abs) { clipVideo.src = ev.clip; clipVideo.currentTime = 0; }
-  clipVideo.play().catch(() => {});
+  const abs = new URL(path, location.href).href;
+  if (clipVideo.src !== abs) { clipVideo.src = path; clipVideo.currentTime = 0; }
   clipCap.textContent = ev.title;
   clipOverlay.classList.add('on');
+  clipVideo.muted = false;
+  clipVideo.play().catch(() => {
+    clipVideo.muted = true;
+    clipVideo.play().catch(() => {});
+  });
 }
 function hideClip() {
-  clipHideTimer = setTimeout(() => { clipOverlay.classList.remove('on'); clipVideo.pause(); }, 80);
+  clipHideTimer = setTimeout(() => {
+    clipOverlay.classList.remove('on');
+    clipVideo.pause();
+  }, 80);
 }
 const eventBox = elEvent.closest('.event');
 eventBox.addEventListener('mouseenter', () => showClip(currentEvent()));
@@ -200,19 +259,61 @@ eventBox.addEventListener('mouseleave', hideClip);
 const editBtnEl  = document.getElementById('edit-btn');
 const ceBox      = document.getElementById('clip-edit');
 const ceTitle    = document.getElementById('ce-title');
-const ceInput    = document.getElementById('ce-input');
+const ceViewSel  = document.getElementById('ce-view');
+const ceInputF   = document.getElementById('ce-input-f');
+const ceInputR   = document.getElementById('ce-input-r');
+const ceNone     = document.getElementById('ce-none');     // "No clip available" checkbox
 const ceSave     = document.getElementById('ce-save');
 const ceReset    = document.getElementById('ce-reset');
+const ceNoneAll  = document.getElementById('ce-none-all'); // "No clip for any POV" button
 const ceX        = document.getElementById('ce-x');
 let ceEditingEv  = null;
+
+// Populate the view-picker dropdown from the existing view-panel buttons,
+// so adding/removing views in the panel automatically updates the editor.
+function populateViewSelect() {
+  const opts = [['god', 'God (default)']];
+  document.querySelectorAll('#view-panel .ctrl-item').forEach(btn => {
+    const v = btn.dataset.value;
+    if (!v || v === 'god') return;
+    const label = btn.querySelector('.ctrl-name')?.textContent || v;
+    opts.push([v, label]);
+  });
+  ceViewSel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+}
+populateViewSelect();
+
+// Get the current input values for whichever view is selected in the picker.
+// Read the current stored values for a given POV. Returns { f, r, isNone }
+// where isNone is true if the POV is explicitly disabled (stored as null).
+function inputsForView(ev, view) {
+  if (view === 'god') {
+    const isNone = ev.clip === null && ev.clipReverse === null;
+    return { f: ev.clip || '', r: ev.clipReverse || '', isNone };
+  }
+  const v = (ev.clipByView && ev.clipByView[view]) || {};
+  const isNone = ('f' in v && v.f === null) && ('r' in v && v.r === null);
+  return { f: v.f || '', r: v.r || '', isNone };
+}
+
+function syncNoneState() {
+  const on = ceNone.checked;
+  ceInputF.disabled = on;
+  ceInputR.disabled = on;
+  if (on) { ceInputF.value = ''; ceInputR.value = ''; }
+}
 
 function isEditMode() { return editBtnEl && editBtnEl.classList.contains('active'); }
 function openClipEditor(ev) {
   ceEditingEv = ev;
   ceTitle.textContent = ev.title;
-  ceInput.value = ev.clip || '';
+  ceViewSel.value = currentView();   // default to whatever POV is active
+  const { f, r, isNone } = inputsForView(ev, ceViewSel.value);
+  ceInputF.value = f; ceInputR.value = r;
+  ceNone.checked = isNone;
+  syncNoneState();
   ceBox.classList.add('on');
-  setTimeout(() => { ceInput.focus(); ceInput.select(); }, 0);
+  setTimeout(() => { (isNone ? ceNone : ceInputF).focus(); if (!isNone) ceInputF.select(); }, 0);
 }
 function closeClipEditor() {
   ceBox.classList.remove('on');
@@ -221,8 +322,20 @@ function closeClipEditor() {
 function commitClipEditor() {
   if (!ceEditingEv) return;
   const key = ceEditingEv.t.toFixed(3);
-  const path = ceInput.value.trim();
-  clipOverrides[key] = path;            // empty string ⇒ disables clip for this event
+  const view = ceViewSel.value;
+  const cur = clipOverrides[key];
+  // Normalise existing override into object shape before merging
+  const base = (typeof cur === 'string') ? { f: cur } : (cur && typeof cur === 'object' ? cur : {});
+  // "No clip" checkbox → store explicit null. Otherwise store the trimmed strings.
+  const f = ceNone.checked ? null : ceInputF.value.trim();
+  const r = ceNone.checked ? null : ceInputR.value.trim();
+  if (view === 'god') {
+    base.f = f; base.r = r;
+  } else {
+    base.views = base.views || {};
+    base.views[view] = { f, r };
+  }
+  clipOverrides[key] = base;
   saveClipOverrides(clipOverrides);
   applyClipOverrides();
   closeClipEditor();
@@ -230,25 +343,61 @@ function commitClipEditor() {
 function resetClipEditor() {
   if (!ceEditingEv) return;
   const key = ceEditingEv.t.toFixed(3);
-  delete clipOverrides[key];
+  const view = ceViewSel.value;
+  const cur = clipOverrides[key];
+  // Reset only the currently-shown view, not the whole entry.
+  if (cur && typeof cur === 'object') {
+    if (view === 'god') { delete cur.f; delete cur.r; }
+    else if (cur.views) { delete cur.views[view]; }
+    if (!cur.f && cur.f !== null && !cur.r && cur.r !== null && (!cur.views || Object.keys(cur.views).length === 0)) {
+      delete clipOverrides[key];
+    }
+  } else {
+    delete clipOverrides[key];
+  }
   saveClipOverrides(clipOverrides);
   applyClipOverrides();
-  ceInput.value = ceEditingEv.clip || '';
+  const { f, r, isNone } = inputsForView(ceEditingEv, view);
+  ceInputF.value = f; ceInputR.value = r;
+  ceNone.checked = isNone;
+  syncNoneState();
 }
+// Switching view in the dropdown re-loads inputs for that view
+ceViewSel.addEventListener('change', () => {
+  if (!ceEditingEv) return;
+  const { f, r, isNone } = inputsForView(ceEditingEv, ceViewSel.value);
+  ceInputF.value = f; ceInputR.value = r;
+  ceNone.checked = isNone;
+  syncNoneState();
+});
+ceNone.addEventListener('change', syncNoneState);
 // Click on the title (in edit mode) opens the editor
 eventBox.addEventListener('click', () => { if (isEditMode()) openClipEditor(currentEvent()); });
 // Reflect edit-mode state in <body> so CSS shows the orange clickable hint
 function syncEditClass() { document.body.classList.toggle('editing', isEditMode()); }
 editBtnEl && editBtnEl.addEventListener('click', () => setTimeout(syncEditClass, 0));
 syncEditClass();
+// Mark this entire event as no-clip across every POV in one click.
+// Sets god to {f: null, r: null} with no view-specific entries — every POV
+// falls back to god and pickClipPath returns null, so hover does nothing.
+function noClipAllPOVs() {
+  if (!ceEditingEv) return;
+  const key = ceEditingEv.t.toFixed(3);
+  clipOverrides[key] = { f: null, r: null };
+  saveClipOverrides(clipOverrides);
+  applyClipOverrides();
+  closeClipEditor();
+}
+
 // Editor buttons
 ceSave.addEventListener('click', commitClipEditor);
 ceReset.addEventListener('click', resetClipEditor);
+ceNoneAll.addEventListener('click', noClipAllPOVs);
 ceX.addEventListener('click', closeClipEditor);
-ceInput.addEventListener('keydown', (e) => {
+[ceInputF, ceInputR].forEach(inp => inp.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') commitClipEditor();
   else if (e.key === 'Escape') closeClipEditor();
-});
+}));
 
 function setT(v) {
   t = Math.max(T_MIN, Math.min(T_MAX, v));
