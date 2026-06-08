@@ -180,6 +180,11 @@
             display: block;
         }
 
+        /* Minimized: only the header row stays visible; edit mode remains active */
+        .editor-panel.minimized>*:not(.ed-head) {
+            display: none !important;
+        }
+
         .ed-head {
             display: flex;
             align-items: center;
@@ -213,6 +218,26 @@
             cursor: pointer;
         }
 
+        .ed-addev {
+            width: 100%;
+            font: inherit;
+            font-size: 11px;
+            padding: 6px 0;
+            margin-bottom: 8px;
+            cursor: pointer;
+            border: 1px solid #b5651d;
+            border-radius: 3px;
+            background: #fdf4ec;
+            color: #b5651d;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        .ed-addev:hover {
+            background: #b5651d;
+            color: #fff;
+        }
+
         .ed-sel {
             font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
@@ -238,6 +263,78 @@
 
         .ed-kf b {
             color: var(--ink);
+        }
+
+        .ed-head-btns {
+            display: flex;
+            gap: 4px;
+        }
+
+        /* Keyframe value editing inputs */
+        #ed-kfvals {
+            margin-bottom: 6px;
+        }
+
+        .ed-kflabel {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--ink2);
+            letter-spacing: 0.06em;
+            margin: 4px 0 5px;
+        }
+
+        .ed-kfhint {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--ink3);
+            margin: 2px 0 6px;
+            line-height: 1.5;
+        }
+
+        .ed-kfrow {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .ed-kfrow label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--ink3);
+            width: 20px;
+            flex-shrink: 0;
+        }
+
+        .ed-kfin {
+            flex: 1;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 4px 5px;
+            border: 1px solid var(--line);
+            border-radius: 3px;
+            background: #fff;
+            color: var(--ink);
+            cursor: ew-resize;
+        }
+
+        .ed-kfin:focus {
+            cursor: text;
+            outline: 1px solid var(--ink2);
+        }
+
+        /* The `t` row is the timeline-position editor — slightly highlighted */
+        .ed-kfrow-t {
+            background: rgba(232, 138, 47, 0.08);
+            border-radius: 3px;
+            padding: 3px 5px;
+            margin: 0 -5px 6px;
+        }
+
+        .ed-kfrow-t label {
+            color: #b86a1f;
+            font-weight: 600;
         }
 
         #ed-delkey {
@@ -783,6 +880,11 @@
             background: rgba(181, 101, 29, 0.08);
         }
 
+        /* Event markers become draggable in edit mode — re-times the story beat. */
+        body.editing .ev-marker {
+            cursor: ew-resize;
+        }
+
         /* Clip-path editor popover */
         .clip-edit {
             position: fixed;
@@ -917,6 +1019,32 @@
             background: #b5651d;
             color: #fff;
             border-color: #b5651d;
+        }
+
+        /* Title editor + delete button — only visible when the clip-edit popover is open on a user-added event */
+        .clip-edit .ce-title-edit,
+        .clip-edit .ce-delete {
+            display: none;
+        }
+
+        .clip-edit.ce-added .ce-title-edit {
+            display: flex;
+        }
+
+        .clip-edit.ce-added .ce-delete {
+            display: inline-block;
+        }
+
+        .clip-edit .ce-delete {
+            background: #fff;
+            border-color: #c44;
+            color: #c44;
+            margin-left: auto;
+        }
+
+        .clip-edit .ce-delete:hover {
+            background: #c44;
+            color: #fff;
         }
 
         .clip-edit .ce-hint {
@@ -1149,6 +1277,17 @@
         .marker:hover {
             border-color: var(--ink);
             background: var(--ink);
+        }
+
+        /* User-added event markers — orange fill to distinguish them from factory beats */
+        .ev-marker.ev-added {
+            background: #f0a050;
+            border-color: #b5651d;
+        }
+
+        .ev-marker.ev-added:hover {
+            background: #b5651d;
+            border-color: #b5651d;
         }
 
         .kf-marker {
@@ -1581,6 +1720,10 @@
     <div class="clip-edit" id="clip-edit">
         <div class="ce-head"><span>Clip files</span><button class="ce-x" id="ce-x">×</button></div>
         <div class="ce-title" id="ce-title"></div>
+        <!-- Title editor row: visible only for user-added events (toggled by .ce-added on .clip-edit) -->
+        <div class="ce-field ce-title-edit"><label>Title</label>
+            <input type="text" id="ce-title-input" placeholder="Event title shown on the timeline" />
+        </div>
         <div class="ce-field"><label>POV</label>
             <select id="ce-view"></select>
         </div>
@@ -1597,10 +1740,13 @@
             <button class="ce-save" id="ce-save">Save</button>
             <button id="ce-reset" title="Restore default path for this POV">Reset</button>
             <button id="ce-none-all" title="Mark this event as having no clip for every POV">No clip (all)</button>
+            <button class="ce-delete" id="ce-delete" title="Delete this user-added event">🗑 Delete event</button>
         </div>
         <div class="ce-hint">POV other than God = falls back to God if empty · Enter to save · Esc to close</div>
         <div class="ce-export-row">
-            <button id="ce-export" title="Download all clip assignments as clips.json — commit the file to make settings permanent">↓ Export all clips as JSON</button>
+            <button id="ce-export"
+                title="Download all clip assignments as clips.json — commit the file to make settings permanent">↓
+                Export all clips as JSON</button>
         </div>
     </div>
 

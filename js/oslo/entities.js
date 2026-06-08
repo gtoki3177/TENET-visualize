@@ -104,6 +104,7 @@ export function buildEntities(scene, world) {
     count(name) { const f = editTracks[name]; return f ? f.length : 0; },
     hasKeyframe(name, t, eps = 0.004) { const f = editTracks[name]; return !!f && f.some(k => Math.abs(k.t - t) < eps); },
     setKeyframe(name, t, pos, eps = 0.004) {
+      if (!pos) return;                         // rotation-only commits don't apply here (Oslo has no rotation)
       const f = editTracks[name]; if (!f) return;
       const i = f.findIndex(k => Math.abs(k.t - t) < eps);
       if (i >= 0) f[i].p.copy(pos);

@@ -4,14 +4,18 @@ import { sampleSquadTrack } from './squads.js';
 
 const gY = groundHeight;
 
-// Sample a keyframe track into `out` (avoids allocating a Vector3 every frame).
+// Sample a keyframe track's POSITION into `out`. Keys carrying only a rotation (no `p`) are skipped,
+// so rotation keys interleaved with position keys never disturb the path.
 function kf(frames, t, out) {
-  if (t <= frames[0].t) return out.copy(frames[0].p);
-  for (let i = 0; i < frames.length - 1; i++) {
-    const a = frames[i], b = frames[i + 1];
-    if (t <= b.t) return out.lerpVectors(a.p, b.p, (t - a.t) / (b.t - a.t));
+  let prev = null, next = null;
+  for (const f of frames) {
+    if (!f.p) continue;
+    if (f.t <= t) prev = f;
+    else { next = f; break; }
   }
-  return out.copy(frames[frames.length - 1].p);
+  if (!prev) return next ? out.copy(next.p) : out;
+  if (!next) return out.copy(prev.p);
+  return out.lerpVectors(prev.p, next.p, (t - prev.t) / (next.t - prev.t));
 }
 
 // Interpolate rotation.y across keyframes that carry an `ry`. Returns null when no key has one
@@ -35,6 +39,17 @@ function kfRotY(frames, t) {
 const _v = new THREE.Vector3();   // shared scratch for per-frame sampling
 const gp = (x, z) => new THREE.Vector3(x, gY(x, z), z);
 const up = (x, y, z) => new THREE.Vector3(x, y, z);
+
+// Resolve a boolean visibility keyframe track at time t (Oslo-style show/hide-from-t). Empty ⇒
+// visible. A key {t,on} step-holds the state from t onward; BEFORE the first key the state is the
+// inverse of that first key, so a lone "show@t" reads as "appears at t" and "hide@t" as "vanishes at t".
+function visAt(keys, t) {
+  if (!keys || keys.length === 0) return true;
+  if (t < keys[0].t) return !keys[0].on;
+  let on = keys[0].on;
+  for (let i = 0; i < keys.length; i++) { if (keys[i].t <= t) on = keys[i].on; else break; }
+  return on;
+}
 
 function makeUnit(color, scale = 1, prone = false) {
   const g = new THREE.Group();
@@ -161,7 +176,7 @@ export function buildEntities(scene, world) {
   // The leader's path is an EDITABLE keyframe track ('red-lead' / 'blue-lead' — K it like any
   // character); the followers flock to it. Defaults are the LZ → battlefield → hypocenter beats.
   // Editing the leader + reloading re-bakes the followers (they're generated from this path).
-  const redLeadFrames = [   // baked from editor (2026-06-09)
+  const redLeadFrames = [   // baked from editor (2026-06-09 rev2)
     { t: 0.08, p: up(26.64, -0.87, 292.23) },
     { t: 0.2,  p: up(15.53, -0.67, 170.9) },
     { t: 0.25, p: up(0.86, -0.59, 90.99) },
@@ -169,10 +184,10 @@ export function buildEntities(scene, world) {
     { t: 0.38, p: up(-112.17, -0.39, -2.32) },
     { t: 0.41, p: up(-161.44, -0.33, -131.25) },
     { t: 0.45, p: up(-115.78, -0.26, -200.13) },
-    { t: 0.46, p: up(-112.83, -0.26, -220.14) },
-    { t: 0.48, p: up(-79.72, -0.23, -226.22) },
-    { t: 0.5,  p: up(-65.4, -0.19, -276.15) },
-    { t: 0.53, p: up(-65.41, 0.01, -276.03) },
+    { t: 0.47, p: up(-132.43, -0.24, -251.56) },
+    { t: 0.48, p: up(-124.54, -0.23, -289.72) },
+    { t: 0.5,  p: up(-125.52, -0.19, -289.76) },
+    { t: 0.53, p: up(-77.57, 0.01, -256.93) },
     { t: 0.57, p: up(-75.37, 0.49, -219.25) },
     { t: 0.59, p: up(-52.62, 0.69, -189.05) },
     { t: 0.63, p: up(-19.46, 1.08, -147.37) },
@@ -222,38 +237,64 @@ export function buildEntities(scene, world) {
   const tp = makeUnit(COL.forward, 1.15); root.add(tp);
   const ives = makeUnit(COL.forward, 1.15); root.add(ives);
   const TP_EMERGE = 0.12;   // TP & Ives disembark the red Chinook with the assault wave
-  const tpFrames = [
-    { t: 0.00, p: gp(lz.x - 26, lz.z + 8) },        // aboard the red Chinook on the LZ
-    { t: TP_EMERGE, p: gp(lz.x - 26, lz.z + 8) },   // step out as it sets down
-    { t: 0.18, p: gp(ts.x + 26, ts.z + 6) },
-    { t: 0.22, p: gp(-22, -80) },
-    { t: 0.34, p: gp(8, -155) },                        // heading NE toward the cave
-    { t: 0.44, p: gp(cave.x + 20, cave.z + 28) },
-    { t: 0.52, p: gp(cave.x + 6, cave.z + 8) },
-    { t: 0.55, p: gp(cave.x, cave.z) },
-    { t: 0.58, p: up(cave.x, cy - 14, cave.z) },
-    { t: 0.63, p: up(cave.x + 28, vy + 8, cave.z + 20) }, // bottom of shaft, turning SE
-    { t: 0.67, p: up(155, vy, -80) },                   // traversing east underground
-    { t: 0.70, p: up(gate.x - 8, vy, gate.z - 16) },
-    { t: 0.80, p: up(gate.x - 8, vy, gate.z - 16) },
-    { t: 0.84, p: up(volk.x, vy, volk.z - 2) },
-    { t: 0.88, p: up(chamber.x, vy, chamber.z) },
-    { t: 0.93, p: up(chamber.x, vy + 30, chamber.z) },
-    { t: 0.97, p: gp(hill.x - 10, hill.z) },
+  const tpFrames = [   // baked from editor (2026-06-09)
+    { t: 0.00,  p: up(26.64, 0, 292.23) },          // aboard the red Chinook on the LZ
+    { t: TP_EMERGE, p: up(26.64, 0, 292.23) },      // step out with the assault wave
+    { t: 0.20,  p: up(15, 0, 168) },                // advancing WITH Red across the field
+    { t: 0.29,  p: up(-60, 0, 66) },
+    { t: 0.38,  p: up(-108, 0, -4) },
+    { t: 0.423, p: up(-156.029, 0, -124.92) },
+    { t: 0.45,  p: up(-114, 0, -198) },
+    { t: 0.5,   p: up(-135.817, 0, -268.396) },     // at the building as it blows (5:00)
+    { t: 0.525, p: up(-124.51, 0, -270.435) },
+    { t: 0.57,  p: up(-105, 0, -355) },             // cave mouth — into the tunnel
+    { t: 0.61,  p: up(-105, -12, -355) },           // descending the shaft
+    { t: 0.65,  p: up(-77, -47, -335) },            // bottom of shaft, turning SE
+    { t: 0.7,   p: up(155, -55, -80) },             // east underground
+    { t: 0.76,  p: up(255, -55, 2) },
+    { t: 0.82,  p: up(352, -55, 48) },              // at the gate
+    { t: 0.86,  p: up(361, -55, 71) },              // through the gate door, at the Algorithm
+    { t: 0.9,   p: up(360, -55, 66) },              // to the chamber rope
+    { t: 0.94,  p: up(360, -25, 66) },              // hauled up
+    { t: 0.97,  p: up(350, 58, 70) },               // on the hilltop
   ];
-  const ivesFrames = tpFrames.map(f => ({ t: Math.min(1.1, f.t + 0.01), p: f.p.clone().add(new THREE.Vector3(7, 0, 6)) }));
+  const ivesFrames = [   // baked from editor (2026-06-09) — keyed independently of TP
+    { t: 0.01,  p: up(33.64, 0, 298.23) },
+    { t: 0.13,  p: up(33.64, 0, 298.23) },
+    { t: 0.21,  p: up(22, 0, 174) },
+    { t: 0.3,   p: up(-53, 0, 72) },
+    { t: 0.39,  p: up(-112.638, 0, -6.822) },
+    { t: 0.424, p: up(-146.637, 0, -119.703) },
+    { t: 0.434, p: up(-150.839, 0, -167.112) },
+    { t: 0.46,  p: up(-123.721, 0, -202.515) },
+    { t: 0.488, p: up(-129.481, 0, -254.293) },
+    { t: 0.525, p: up(-116.172, 0, -269.566) },
+    { t: 0.58,  p: up(-98, 0, -349) },
+    { t: 0.62,  p: up(-98, -12, -349) },
+    { t: 0.66,  p: up(-70, -47, -329) },
+    { t: 0.71,  p: up(162, -55, -74) },
+    { t: 0.77,  p: up(262, -55, 8) },
+    { t: 0.83,  p: up(359, -55, 54) },
+    { t: 0.87,  p: up(368, -55, 77) },
+    { t: 0.91,  p: up(367, -55, 72) },
+    { t: 0.95,  p: up(367, -25, 72) },
+    { t: 0.98,  p: up(357, 58, 76) },
+  ];
 
   // ---------- Volkov: airdrops at the cave, sets the trap, then descends to guard ----------
   const volkov = makeUnit(0xcfd6de, 1.1); root.add(volkov);
   const volkovFrames = [
-    { t: 0.28, p: up(cave.x + 4, cy + 46, cave.z + 4) },
+    { t: 0.28, p: up(cave.x + 4, cy + 46, cave.z + 4) },// rappels from the heli over the cave
     { t: 0.34, p: gp(cave.x + 8, cave.z + 6) },
-    { t: 0.40, p: gp(cave.x + 4, cave.z + 2) },
-    { t: 0.45, p: up(cave.x, cy - 10, cave.z) },
+    { t: 0.40, p: gp(cave.x + 4, cave.z + 2) },         // sets the trap at the entrance
+    { t: 0.45, p: up(cave.x, cy - 10, cave.z) },        // descends
     { t: 0.55, p: up(cave.x + 28, vy + 8, cave.z + 20) },
     { t: 0.62, p: up(155, vy, -80) },
-    { t: 0.70, p: up(volk.x, vy, volk.z) },
-    { t: 1.00, p: up(volk.x, vy, volk.z) },
+    { t: 0.70, p: up(volk.x, vy, volk.z) },             // guarding the Algorithm
+    { t: 0.86, p: up(volk.x, vy, volk.z) },             // TP & Ives reach the vault
+    { t: 0.89, p: up(volk.x + 5, vy - 1, volk.z + 5) }, // shoved to the pit edge
+    { t: 0.92, p: up(volk.x + 5, vy - 32, volk.z + 5) },// falls into the hole (then the blast)
+    { t: 1.00, p: up(volk.x + 5, vy - 32, volk.z + 5) },
   ];
 
   // ---------- Neil — After: the inverted (blue) self at the gate ----------
@@ -310,11 +351,14 @@ export function buildEntities(scene, world) {
   // is inverted, world-time runs this in reverse (turnstile at 0.40 → hypocenter at 0.94).
   const neil3 = makeUnit(COL.inverted, 1.15); neil3.visible = false; root.add(neil3);
   const neil3Frames = [
-    { t: 0.40, p: gp(ts.x - 3, ts.z + 2) },         // at the turnstile (his subjective END — enters here)
-    { t: 0.48, p: gp(-52, -106) },                  // peels past the battlefield entrance
-    { t: 0.58, p: gp(-18, -150) },                  // crossing the battlefield with Blue
-    { t: 0.74, p: gp(180, 20) },                    // heading SE with Blue
-    { t: 0.94, p: gp(hill.x - 30, hill.z - 25) },   // off the Blue helicopter at the hypocenter (subjective START)
+    { t: 0.40, p: gp(ts.x - 3, ts.z + 2) },         // turnstile (subjective END — peels in here)
+    { t: 0.46, p: gp(-50, -130) },                  // up toward the tunnel entrance
+    { t: 0.52, p: gp(-45, -245) },                  // nearest the cave — sees Volkov at the entrance
+    { t: 0.60, p: gp(0, -205) },                    // falls in with Blue
+    { t: 0.70, p: gp(70, -165) },                   // crossing the battlefield with Blue
+    { t: 0.78, p: gp(145, -108) },                  // following Blue SE
+    { t: 0.86, p: gp(285, 18) },
+    { t: 0.94, p: gp(hill.x - 30, hill.z - 25) },   // off the Blue helicopter (subjective START)
   ];
 
   // ---------- Extraction ropes (highland top → chamber) ----------
@@ -349,15 +393,16 @@ export function buildEntities(scene, world) {
   // must not overwrite them while the user drags / before the keyframe is committed.
   const FREEZE = new Set();
 
-  // Editable visibility windows (P3). null = always visible; else a list of [a,b)
-  // intervals in clock-t. 9 ≈ "to the end".
-  const visSpec = {
-    tp: null, ives: null, car: null, neilGate: null,
-    neil: [[0.40, 0.45], [1.00, 9]],
-    neil3: [[0.40, 0.95]],
-    volkov: [[0.27, 9]],
+  // Editable visibility as boolean step keyframes (Show/Hide-from-t). Empty ⇒ always visible.
+  // The editor's Show/Hide-from-t buttons drop these keys; visAt() resolves them per frame.
+  const VIS_NAMES = ['tp', 'ives', 'neil', 'neil3', 'neilGate', 'car', 'volkov', 'red-lead', 'blue-lead'];
+  const BAKED_VIS = {
+    neil:  [[0.40, 1], [0.45, 0], [1.00, 1]],  // FWD: at the turnstile, hidden while riding, back after the blast
+    neil3: [[0.40, 1], [0.95, 0]],             // BWD: turnstile → hypocenter
+    volkov: [[0.27, 1]],                       // appears at the airdrop
   };
-  const inWindows = (iv, tt) => !iv || iv.some((seg) => tt >= seg[0] && tt < seg[1]);
+  const baseVisTracks = {}; for (const n of VIS_NAMES) baseVisTracks[n] = (BAKED_VIS[n] || []).map(([t, on]) => [t, on]);
+  const visTracks = {}; for (const n of VIS_NAMES) visTracks[n] = baseVisTracks[n].map(([t, on]) => ({ t, on: !!on }));
 
   function update(t, dt) {
     dt = dt || 0.016;
@@ -394,11 +439,14 @@ export function buildEntities(scene, world) {
       }
     });
 
-    // Volkov's heli hovers over the cave during the airdrop, then leaves
-    volkovHeli.visible = t > 0.22 && t < 0.46;
+    // Volkov's heli flies IN from the building cluster to the cave for the airdrop, then leaves
+    volkovHeli.visible = t > 0.18 && t < 0.46;
     if (volkovHeli.visible) {
-      const leave = clamp01((t - 0.4) / 0.06);
-      volkovHeli.position.set(cave.x + 4 + leave * 40, cy + 48 + leave * 18, cave.z + 4 - leave * 30);
+      const approach = clamp01((t - 0.18) / 0.10);   // building cluster → cave (tunnel entrance)
+      const leave = clamp01((t - 0.40) / 0.06);      // then peels away NE
+      const hx = lerp(POS.building.x, cave.x + 4, approach) + leave * 40;
+      const hz = lerp(POS.building.z + 30, cave.z + 4, approach) - leave * 30;
+      volkovHeli.position.set(hx, cy + 48 + leave * 18, hz);
       volkovHeli.userData.rotors.forEach(r => r.rotation.y += dt * 30);
     }
 
@@ -469,8 +517,8 @@ export function buildEntities(scene, world) {
 
     if (!FREEZE.has('tp')) kf(tpFrames, t, tp.position);
     if (!FREEZE.has('ives')) kf(ivesFrames, t, ives.position);
-    tp.visible = inWindows(visSpec.tp, t) && t >= TP_EMERGE;     // hidden inside the Chinook until disembark
-    ives.visible = inWindows(visSpec.ives, t) && t >= TP_EMERGE;
+    tp.visible = visAt(visTracks.tp, t) && t >= TP_EMERGE;       // hidden inside the Chinook until disembark
+    ives.visible = visAt(visTracks.ives, t) && t >= TP_EMERGE;
 
     // Neil — FWD — colour flips blue (inverted) → red (forward) on revert
     if (!FREEZE.has('neil')) kf(neilFrames, t, neil.position);
@@ -478,13 +526,13 @@ export function buildEntities(scene, world) {
     flags.neil1Forward = reverted;
     neil.userData.mat.color.set(reverted ? COL.forward : COL.inverted);
     neil.userData.ring.color.set(reverted ? COL.forward : COL.inverted);
-    neil.visible = inWindows(visSpec.neil, t);
+    neil.visible = visAt(visTracks.neil, t);
 
     // Neil — BWD — the blue copy riding with Blue Team from turnstile out to the hypocenter
-    neil3.visible = inWindows(visSpec.neil3, t);
+    neil3.visible = visAt(visTracks.neil3, t);
     if (neil3.visible && !FREEZE.has('neil3')) kf(neil3Frames, t, neil3.position);
 
-    car.visible = inWindows(visSpec.car, t);
+    car.visible = visAt(visTracks.car, t);
     if (!FREEZE.has('car')) {
       kf(carFrames, t, car.position);
       const ry = kfRotY(carFrames, t);
@@ -499,14 +547,14 @@ export function buildEntities(scene, world) {
     if (t >= 0.45 && t < 1.00 && !FREEZE.has('neil')) neil.position.copy(car.position);
 
     // Volkov
-    volkov.visible = inWindows(visSpec.volkov, t);
+    volkov.visible = visAt(visTracks.volkov, t);
     if (volkov.visible && !FREEZE.has('volkov')) kf(volkovFrames, t, volkov.position);
 
     // Neil — After: lies dead → revives & takes the bullet → opens the gate → runs back
     // up the tunnel to the turnstile. (In his subjective time, played in reverse.) Its pose
     // is scripted, but the gizmo can still grab it (FREEZE) and the run-back phase (t≥0.86)
     // is keyframe-editable via the `futureRun` track.
-    neilGate.visible = inWindows(visSpec.neilGate, t);
+    neilGate.visible = visAt(visTracks.neilGate, t);
     if (!FREEZE.has('neilGate')) {
       if (t < 0.70) { neilGate.position.copy(ngLie); neilGate.children[0].rotation.z = Math.PI / 2; }
       else if (t < 0.76) {
@@ -545,35 +593,74 @@ export function buildEntities(scene, world) {
   for (const a of editActors) { a.obj.userData.editId = a.id; a.obj.userData.editKind = 'actor'; a.obj.userData.trackName = a.name; }
   // Keyframe = {t, p, ry?}. ry (rotation about Y) is optional — present only on keys the user
   // rotated; serialised as a 5th column so position-only tracks stay [t,x,y,z].
-  const serTrack = (frames) => frames.map(f => f.ry !== undefined
-    ? [r3(f.t), r3(f.p.x), r3(f.p.y), r3(f.p.z), r3(f.ry)]
-    : [r3(f.t), r3(f.p.x), r3(f.p.y), r3(f.p.z)]);
+  const serTrack = (frames) => frames.map(f => {        // p-less (rotation-only) keys serialise with null xyz
+    const x = f.p ? r3(f.p.x) : null, y = f.p ? r3(f.p.y) : null, z = f.p ? r3(f.p.z) : null;
+    return f.ry !== undefined ? [r3(f.t), x, y, z, r3(f.ry)] : [r3(f.t), x, y, z];
+  });
   const baseTracks = {};
   for (const k in editTracks) baseTracks[k] = serTrack(editTracks[k]);
-  const baseVis = {};
-  for (const k in visSpec) baseVis[k] = visSpec[k] ? visSpec[k].map((iv) => [...iv]) : null;
+  const serVis = (keys) => keys.map(k => [r3(k.t), k.on ? 1 : 0]);
 
   const edit = {
-    freeze: FREEZE, actors: editActors, tracks: editTracks, baseTracks,
-    vis: visSpec, baseVis,
-    setVisibility(name, intervals) { if (name in visSpec) visSpec[name] = intervals; },
-    applyVis(name, data) { if (name in visSpec) visSpec[name] = data ? data.map((iv) => [iv[0], iv[1]]) : null; },
-    resetVis(name) { if (name in visSpec) visSpec[name] = baseVis[name] ? baseVis[name].map((iv) => [...iv]) : null; },
+    freeze: FREEZE, visMode: 'keys', actors: editActors, tracks: editTracks, baseTracks,
+    vis: visTracks, visTracks,
+    setVisibility() {},   // legacy interval API — no-op in keys mode
+    // ── visibility as appear/disappear (Show/Hide-from-t) step keys ──
+    visAt(name, t) { return visAt(visTracks[name], t); },
+    visKeyList(name) { return visTracks[name] || []; },
+    countVis(name) { const f = visTracks[name]; return f ? f.length : 0; },
+    hasVisKey(name, t, eps = 0.004) { const f = visTracks[name]; return !!f && f.some(k => Math.abs(k.t - t) < eps); },
+    setVisKey(name, t, on, eps = 0.004) {
+      const f = visTracks[name]; if (!f) return;
+      const i = f.findIndex(k => Math.abs(k.t - t) < eps);
+      if (i >= 0) f[i].on = on;
+      else { const nf = { t, on }; const j = f.findIndex(k => k.t > t); if (j < 0) f.push(nf); else f.splice(j, 0, nf); }
+    },
+    toggleVisKey(name, t, eps = 0.004) { this.setVisKey(name, t, !visAt(visTracks[name], t - 1e-5), eps); },
+    deleteVisKey(name, t, eps = 0.004) {
+      const f = visTracks[name]; if (!f) return false;
+      const i = f.findIndex(k => Math.abs(k.t - t) < eps);
+      if (i >= 0) { f.splice(i, 1); return true; } return false;
+    },
+    serializeVisTrack(name) { return serVis(visTracks[name] || []); },
+    serializeVis() { const o = {}; for (const k in visTracks) if (visTracks[k].length) o[k] = serVis(visTracks[k]); return o; },
+    applyVis(name, data) {
+      const f = visTracks[name]; if (!f) return;
+      f.length = 0;
+      if (Array.isArray(data)) for (const [t, on] of data) f.push({ t, on: !!on });
+    },
+    resetVis(name) { this.applyVis(name, baseVisTracks[name]); },
     count(name) { const f = editTracks[name]; return f ? f.length : 0; },
+    // A key may carry a position (`p`), a rotation (`ry`), or both — Move/Rotate edit them separately.
     hasKeyframe(name, t, eps = 0.004) { const f = editTracks[name]; return !!f && f.some(k => Math.abs(k.t - t) < eps); },
-    setKeyframe(name, t, pos, ry, eps = 0.004) {
+    hasPosition(name, t, eps = 0.004) { const f = editTracks[name]; return !!f && f.some(k => Math.abs(k.t - t) < eps && k.p); },
+    hasRotation(name, t, eps = 0.004) { const f = editTracks[name]; return !!f && f.some(k => Math.abs(k.t - t) < eps && k.ry !== undefined); },
+    setKeyframe(name, t, pos, ry, eps = 0.004) {  // pos OR ry may be omitted → position-only / rotation-only key
       const f = editTracks[name]; if (!f) return;
       const i = f.findIndex(k => Math.abs(k.t - t) < eps);
-      if (i >= 0) { f[i].p.copy(pos); if (ry !== undefined) f[i].ry = ry; }
-      else {
-        const nf = { t, p: pos.clone() }; if (ry !== undefined) nf.ry = ry;
+      if (i >= 0) {
+        if (pos) { if (f[i].p) f[i].p.copy(pos); else f[i].p = pos.clone(); }
+        if (ry !== undefined) f[i].ry = ry;
+      } else {
+        const nf = { t }; if (pos) nf.p = pos.clone(); if (ry !== undefined) nf.ry = ry;
         const j = f.findIndex(k => k.t > t); if (j < 0) f.push(nf); else f.splice(j, 0, nf);
       }
     },
-    deleteKeyframe(name, t, eps = 0.004) {
-      const f = editTracks[name]; if (!f || f.length <= 1) return false;
-      const i = f.findIndex(k => Math.abs(k.t - t) < eps);
-      if (i >= 0) { f.splice(i, 1); return true; } return false;
+    deleteKeyframe(name, t, eps = 0.004) {        // "Del position": drop p; keep a rotation key if present
+      const f = editTracks[name]; if (!f) return false;
+      const i = f.findIndex(k => Math.abs(k.t - t) < eps && k.p);
+      if (i < 0) return false;
+      if (f[i].ry !== undefined) { delete f[i].p; return true; }
+      if (f.length <= 1) return false;
+      f.splice(i, 1); return true;
+    },
+    deleteRotation(name, t, eps = 0.004) {        // "Del rotation": drop ry; keep a position key if present
+      const f = editTracks[name]; if (!f) return false;
+      const i = f.findIndex(k => Math.abs(k.t - t) < eps && k.ry !== undefined);
+      if (i < 0) return false;
+      if (f[i].p) { delete f[i].ry; return true; }
+      if (f.length <= 1) return false;
+      f.splice(i, 1); return true;
     },
     serializeTrack(name) { return serTrack(editTracks[name]); },
     serialize() { const o = {}; for (const k in editTracks) o[k] = serTrack(editTracks[k]); return o; },
@@ -581,18 +668,20 @@ export function buildEntities(scene, world) {
       const f = editTracks[name]; if (!f || !Array.isArray(data)) return;
       f.length = 0;
       for (const [t, x, y, z, ry] of data) {
-        const kf = { t, p: new THREE.Vector3(x, y, z) };
-        if (ry !== undefined) kf.ry = ry;
+        const kf = { t };
+        if (x !== null && x !== undefined) kf.p = new THREE.Vector3(x, y, z);  // null x ⇒ rotation-only key
+        if (ry !== undefined && ry !== null) kf.ry = ry;
         f.push(kf);
       }
     },
     resetTrack(name) { this.applyTrack(name, baseTracks[name]); },
   };
 
-  // X-ray: let the characters be seen THROUGH the faded floor. The terrain goes
-  // transparent (world.setXray), but the actor meshes still depth-test, so underground
-  // selves (TP/Ives in the vault, Volkov, Neil — After) stay hidden behind the ground.
-  // Drop their depth-test and bump render order so they always read in X-ray.
+  // X-ray: characters should still read EXACTLY as normal — solid bodies, correct depth — only
+  // now also visible through the faded floor. The faded terrain doesn't write depth (world.setXray),
+  // so underground selves show through it without any per-actor hack. We draw the actors LAST (high
+  // renderOrder) and ignore depth ONLY against the see-through scenery, while their own opaque bodies
+  // keep depth-testing against each other so the cone/ring never wash out or sort wrong.
   const xrayActors = [tp, ives, volkov, neilGate, neil, neil3, car,
     ...redTeam.map(o => o.u), ...blueTeam.map(o => o.u)];
   function setXray(on) {
@@ -600,7 +689,11 @@ export function buildEntities(scene, world) {
       if (!o.isMesh) return;
       o.renderOrder = on ? 6 : 0;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of mats) m.depthTest = !on;
+      for (const m of mats) {
+        if (m.userData.baseTransparent === undefined) m.userData.baseTransparent = m.transparent;
+        m.transparent = on ? true : m.userData.baseTransparent;  // join the post-terrain pass so it isn't washed
+        m.depthTest = !on;                                       // not occluded by the see-through ground
+      }
     });
   }
 

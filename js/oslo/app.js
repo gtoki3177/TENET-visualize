@@ -160,6 +160,58 @@ const clipVideo   = document.getElementById('clip-video');
 const clipCap     = document.getElementById('clip-cap');
 let clipHideTimer = null;
 
+// ---------- Event time overrides ----------
+// Lets the user re-time the hardcoded story beats by dragging the labelled markers in EDIT mode.
+// Stored as { "<origT.toFixed(4)>": newT }. The original t is the stable key (hardcoded in EVENTS)
+// so we can reset to factory defaults and key overrides through file shares without ambiguity.
+// Applied BEFORE clip-overrides are loaded, because clip lookups key by the *current* ev.t.
+const EVENT_T_KEY = 'tenet_oslo_event_t';
+function loadEventTimes() {
+  try { return JSON.parse(localStorage.getItem(EVENT_T_KEY)) || {}; } catch (e) { return {}; }
+}
+function saveEventTimes(map) {
+  try { localStorage.setItem(EVENT_T_KEY, JSON.stringify(map)); } catch (e) {}
+}
+for (const ev of EVENTS) ev._origT = ev.t;     // remember the hardcoded default
+function applyEventTimes(overrides) {           // mutate ev.t in place; idempotent
+  if (!overrides) return;
+  for (const ev of EVENTS) {
+    const key = ev._origT.toFixed(4);
+    if (key in overrides && isFinite(overrides[key])) ev.t = overrides[key];
+  }
+  EVENTS.sort((a, b) => a.t - b.t);             // keep ascending so currentEvent() stays right
+}
+applyEventTimes(loadEventTimes());
+
+// ---------- User-added events ----------
+// Lets the user create new event markers at the current t via the editor panel.
+// Stored as an array of plain objects (no Vector3 / DOM refs) keyed by a stable `id`
+// so renames / re-times don't break references and merges with committed clips.json work cleanly.
+const ADDED_EVENTS_KEY = 'tenet_oslo_added_events';
+function loadAddedEvents() {
+  try { return JSON.parse(localStorage.getItem(ADDED_EVENTS_KEY)) || []; } catch (e) { return []; }
+}
+function saveAddedEvents(arr) {
+  try { localStorage.setItem(ADDED_EVENTS_KEY, JSON.stringify(arr)); } catch (e) {}
+}
+function snapshotAddedEvents() {
+  // Persisted form omits transient fields (_marker, _added flag, default-overlay) so the
+  // file stays diff-friendly and reload is reproducible.
+  return EVENTS.filter(e => e._added).map(e => {
+    const o = { id: e.id, t: e.t, title: e.title };
+    if (e.loc) o.loc = e.loc;
+    return o;
+  });
+}
+for (const aev of loadAddedEvents()) {
+  // Initialise the runtime EVENT object — clips come from clipOverrides like any other event.
+  // Empty-string clip fields (vs null) so the "no clip available" checkbox isn't auto-checked.
+  const ev = { id: aev.id, t: aev.t, title: aev.title, loc: aev.loc || null, _added: true,
+    _origT: aev.t, clip: '', clipReverse: '', clipByView: {} };
+  EVENTS.push(ev);
+}
+EVENTS.sort((a, b) => a.t - b.t);
+
 // Per-event clip-path overrides — editable in edit mode, persisted to localStorage.
 // Stored as { "<t.toFixed(3)>": { f: 'forward.mp4', r: 'reverse.mp4' } }.
 // Back-compat: old entries were plain strings (forward only) — read transparently.
@@ -173,18 +225,26 @@ function saveClipOverrides(map) {
 }
 const clipOverrides = {};
 // Remember the defaults from the EVENTS literal so Reset can restore them.
-const DEFAULT_CLIPS = EVENTS.map(e => ({
-  f: e.clip, r: e.clipReverse,
-  views: e.clipByView ? JSON.parse(JSON.stringify(e.clipByView)) : {}
-}));
+// Keyed by a stable identifier (origT for factory events, id for user-added events)
+// so EVENTS can be re-sorted and extended without breaking the index correspondence.
+const DEFAULT_CLIPS = {};
+function defaultKey(ev) { return ev._added ? `id:${ev.id}` : `t:${ev._origT.toFixed(4)}`; }
+for (const e of EVENTS) DEFAULT_CLIPS[defaultKey(e)] = {
+  // Preserve the exact initial value (null vs '' is meaningful): factory events default to
+  // their hardcoded paths or null; added events default to '' so "No clip" is unchecked.
+  f: e.clip !== undefined ? e.clip : null,
+  r: e.clipReverse !== undefined ? e.clipReverse : null,
+  views: e.clipByView ? JSON.parse(JSON.stringify(e.clipByView)) : {},
+};
 function applyClipOverrides() {
-  EVENTS.forEach((ev, i) => {
+  for (const ev of EVENTS) {
     const key = ev.t.toFixed(3);
     const o = clipOverrides[key];
-    // Start from defaults, then layer the override on top.
-    ev.clip        = DEFAULT_CLIPS[i].f;
-    ev.clipReverse = DEFAULT_CLIPS[i].r;
-    ev.clipByView  = JSON.parse(JSON.stringify(DEFAULT_CLIPS[i].views));
+    // Start from defaults (empty object for added events with no committed default), then layer.
+    const def = DEFAULT_CLIPS[defaultKey(ev)] || { f: null, r: null, views: {} };
+    ev.clip        = def.f;
+    ev.clipReverse = def.r;
+    ev.clipByView  = JSON.parse(JSON.stringify(def.views));
     if (typeof o === 'string') { ev.clip = o; }
     else if (o && typeof o === 'object') {
       if ('f' in o) ev.clip = o.f || null;
@@ -195,7 +255,7 @@ function applyClipOverrides() {
         }
       }
     }
-  });
+  }
 }
 // Load clip assignments: clips.json (committed base) → localStorage draft on top.
 // Async is fine — clips only show on hover, always ready in time.
@@ -204,6 +264,32 @@ fetch(CLIP_JSON_URL)
   .then(r => r.ok ? r.json() : {})
   .catch(() => ({}))
   .then(base => {
+    // The committed JSON may carry event-time overrides under `__eventTimes` (so a
+    // teammate's re-timed beats ride along with the clip mappings). Apply those first
+    // so subsequent clip-key lookups (ev.t.toFixed(3)) match the committed positions.
+    if (base && typeof base.__eventTimes === 'object') {
+      applyEventTimes(base.__eventTimes);
+      // localStorage draft re-applied LAST so live drafts beat the committed JSON
+      // (same precedence the clip overrides use below).
+      applyEventTimes(loadEventTimes());
+      delete base.__eventTimes;
+      refreshEventMarkerPositions();
+    }
+    // Merge user-added events from the committed JSON. Dedupe by id — local additions
+    // win, JSON-only entries get appended so teammates inherit each other's beats.
+    if (base && Array.isArray(base.__addedEvents)) {
+      const have = new Set(EVENTS.filter(e => e._added).map(e => e.id));
+      for (const aev of base.__addedEvents) {
+        if (!aev || !aev.id || have.has(aev.id)) continue;
+        const ev = { id: aev.id, t: aev.t, title: aev.title, loc: aev.loc || null, _added: true,
+          _origT: aev.t, clip: '', clipReverse: '', clipByView: {} };
+        EVENTS.push(ev);
+        createEventMarker(ev);   // build the draggable DOM marker for this newly-merged event
+      }
+      EVENTS.sort((a, b) => a.t - b.t);
+      saveAddedEvents(snapshotAddedEvents());   // remember the merged union
+      delete base.__addedEvents;
+    }
     const draft = loadClipOverrides();
     // Repopulate: JSON file is the committed base; localStorage overrides for live edits.
     for (const k in clipOverrides) delete clipOverrides[k];
@@ -217,7 +303,10 @@ function isReverseDir() {
   return b && b.dataset.dir === '-1';
 }
 // Current camera POV: 'god' (default), or a character key like 'tp', 'neil', etc.
+// For phase-based characters (TP2, Neil2), returns the current PHASE key (tp2i/tp2f,
+// neil2i/neil2f) so clips can be assigned separately for each phase.
 function currentView() {
+  if (subjKey && _subjPhase && _subjPhase.self) return _subjPhase.self;
   const active = document.querySelector('#view-panel .ctrl-item.active');
   return active ? active.dataset.value : 'god';
 }
@@ -282,8 +371,13 @@ const ceNoneAll  = document.getElementById('ce-none-all'); // "No clip for any P
 const ceX        = document.getElementById('ce-x');
 let ceEditingEv  = null;
 
-// Populate the view-picker dropdown from the existing view-panel buttons,
-// so adding/removing views in the panel automatically updates the editor.
+// Populate the view-picker dropdown from the existing view-panel buttons.
+// Phase-based characters (TP2, Neil2) get extra sub-entries for each phase so you
+// can assign different clips to the inverted phase vs the forward phase.
+const PHASE_CLIP_LABELS = {
+  tp2:   [['tp2i', '  TP 2 — Inverted phase'], ['tp2f', '  TP 2 — Forward phase']],
+  neil2: [['neil2i', '  Neil 2 — Inverted phase'], ['neil2f', '  Neil 2 — Forward phase']],
+};
 function populateViewSelect() {
   const opts = [['god', 'God (default)']];
   document.querySelectorAll('#view-panel .ctrl-item').forEach(btn => {
@@ -291,6 +385,7 @@ function populateViewSelect() {
     if (!v || v === 'god') return;
     const label = btn.querySelector('.ctrl-name')?.textContent || v;
     opts.push([v, label]);
+    if (PHASE_CLIP_LABELS[v]) opts.push(...PHASE_CLIP_LABELS[v]);
   });
   ceViewSel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
 }
@@ -317,19 +412,29 @@ function syncNoneState() {
 }
 
 function isEditMode() { return editBtnEl && editBtnEl.classList.contains('active'); }
+const ceTitleInput = document.getElementById('ce-title-input');
+const ceDelete     = document.getElementById('ce-delete');
 function openClipEditor(ev) {
   ceEditingEv = ev;
   ceTitle.textContent = ev.title;
+  // User-added events get an editable title field + a Delete button (toggled via .ce-added).
+  ceBox.classList.toggle('ce-added', !!ev._added);
+  if (ev._added) ceTitleInput.value = ev.title;
   ceViewSel.value = currentView();   // default to whatever POV is active
   const { f, r, isNone } = inputsForView(ev, ceViewSel.value);
   ceInputF.value = f; ceInputR.value = r;
   ceNone.checked = isNone;
   syncNoneState();
   ceBox.classList.add('on');
-  setTimeout(() => { (isNone ? ceNone : ceInputF).focus(); if (!isNone) ceInputF.select(); }, 0);
+  setTimeout(() => {
+    // For added events default-focus the title so the user can rename right away.
+    if (ev._added) { ceTitleInput.focus(); ceTitleInput.select(); }
+    else { (isNone ? ceNone : ceInputF).focus(); if (!isNone) ceInputF.select(); }
+  }, 0);
 }
 function closeClipEditor() {
   ceBox.classList.remove('on');
+  ceBox.classList.remove('ce-added');
   ceEditingEv = null;
 }
 function commitClipEditor() {
@@ -351,6 +456,17 @@ function commitClipEditor() {
   clipOverrides[key] = base;
   saveClipOverrides(clipOverrides);
   applyClipOverrides();
+  // Title edit (only for user-added events) — update the live record, marker tooltip,
+  // and persist. If the playhead is on this event, the header label refreshes too.
+  if (ceEditingEv._added) {
+    const newTitle = (ceTitleInput.value || '').trim() || ceEditingEv.title || 'Untitled event';
+    if (newTitle !== ceEditingEv.title) {
+      ceEditingEv.title = newTitle;
+      if (ceEditingEv._marker) ceEditingEv._marker.title = newTitle;
+      saveAddedEvents(snapshotAddedEvents());
+      if (currentEvent() === ceEditingEv) elEvent.textContent = newTitle;
+    }
+  }
   closeClipEditor();
 }
 function resetClipEditor() {
@@ -402,10 +518,58 @@ function noClipAllPOVs() {
   closeClipEditor();
 }
 
+// Delete the currently-open user-added event. Factory events are never deletable
+// here (the button is hidden via .ce-added CSS).
+function deleteAddedEvent() {
+  if (!ceEditingEv || !ceEditingEv._added) return;
+  if (!confirm(`Delete event "${ceEditingEv.title}"? This can't be undone.`)) return;
+  const ev = ceEditingEv;
+  const key = ev.t.toFixed(3);
+  // Drop the DOM marker, the EVENTS entry, the default-clips entry, and any clip override.
+  if (ev._marker) ev._marker.remove();
+  const i = EVENTS.indexOf(ev);
+  if (i >= 0) EVENTS.splice(i, 1);
+  delete DEFAULT_CLIPS[defaultKey(ev)];
+  if (clipOverrides[key]) { delete clipOverrides[key]; saveClipOverrides(clipOverrides); }
+  saveAddedEvents(snapshotAddedEvents());
+  closeClipEditor();
+  // currentEvent() now picks the previous beat — refresh the header label.
+  elEvent.textContent = currentEvent().title;
+}
+
+// Add a new event marker at time t0 — invoked from the editor panel's "+ Add event @ t".
+// Opens the clip editor right away so the user can name it / set its clip path.
+function addEventAtT(t0) {
+  const id = 'u' + Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36);
+  const ev = {
+    id, t: Math.max(T_MIN, Math.min(T_MAX, t0)),
+    title: 'New event', loc: null,
+    _added: true, _origT: t0,
+    clip: '', clipReverse: '', clipByView: {},   // empty (not null) → "No clip" checkbox starts unchecked
+  };
+  EVENTS.push(ev);
+  EVENTS.sort((a, b) => a.t - b.t);
+  DEFAULT_CLIPS[defaultKey(ev)] = { f: '', r: '', views: {} };
+  saveAddedEvents(snapshotAddedEvents());
+  createEventMarker(ev);
+  openClipEditor(ev);
+}
+
 // Export all clip assignments as a downloadable JSON file.
 // Save the file as clips/oslo/clips.json and commit it — everyone gets your clips.
 function exportClipsJSON() {
-  const data = JSON.stringify(clipOverrides, null, 2);
+  // Bundle event-time overrides under `__eventTimes` AND user-added events under
+  // `__addedEvents` so teammates inherit re-timed beats + new markers together
+  // with the clip mappings (clip keys are derived from ev.t).
+  const evTimes = loadEventTimes();
+  const added = snapshotAddedEvents();
+  const meta = {};
+  if (Object.keys(evTimes).length) meta.__eventTimes = evTimes;
+  if (added.length) meta.__addedEvents = added;
+  const payload = Object.keys(meta).length
+    ? Object.assign(meta, clipOverrides)
+    : clipOverrides;
+  const data = JSON.stringify(payload, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -422,8 +586,9 @@ ceSave.addEventListener('click', commitClipEditor);
 ceReset.addEventListener('click', resetClipEditor);
 ceNoneAll.addEventListener('click', noClipAllPOVs);
 ceX.addEventListener('click', closeClipEditor);
+ceDelete.addEventListener('click', deleteAddedEvent);
 document.getElementById('ce-export').addEventListener('click', exportClipsJSON);
-[ceInputF, ceInputR].forEach(inp => inp.addEventListener('keydown', (e) => {
+[ceInputF, ceInputR, ceTitleInput].forEach(inp => inp.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') commitClipEditor();
   else if (e.key === 'Escape') closeClipEditor();
 }));
@@ -442,17 +607,83 @@ function setT(v) {
   localStorage.setItem(STORE_KEY, t.toFixed(4));
 }
 
-// Event markers on the track
-for (const ev of EVENTS) {
+// Event markers on the track. In EDIT mode, drag a marker left/right to re-time
+// its story beat (the clip override that was keyed by the old t is migrated to the new t).
+let _evDragMoved = false;   // shared flag: suppresses the click that follows a drag pointerup
+let editActorName = null;   // hoisted: createEventMarker reads it to honour kf-vs-event visibility
+function createEventMarker(ev) {
   const m = document.createElement('button');
-  m.className = 'marker ev-marker';
+  m.className = 'marker ev-marker' + (ev._added ? ' ev-added' : '');
   m.style.left = `${(ev.t - T_MIN) / (T_MAX - T_MIN) * 100}%`;
   m.title = ev.title;
-  m.addEventListener('click', (e) => { e.stopPropagation(); setT(ev.t); pause(); if (ev.loc) goLocation(ev.loc); });
+  ev._marker = m;   // back-reference so refreshEventMarkerPositions() can move it
+  m.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (_evDragMoved) { _evDragMoved = false; return; }
+    setT(ev.t); pause();
+    if (ev.loc) goLocation(ev.loc);
+    if (isEditMode()) openClipEditor(ev);   // added events have no event-title chip → click marker to edit
+  });
+  m.addEventListener('pointerdown', (e) => {
+    if (!editor.active) return;
+    e.stopPropagation();
+    pause();
+    let moved = false;
+    const startX = e.clientX;
+    const oldKey = ev.t.toFixed(3);   // pre-drag clip-override key, captured for migration
+    const onMove = (mv) => {
+      if (!moved && Math.abs(mv.clientX - startX) > 4) { moved = true; document.body.style.cursor = 'ew-resize'; }
+      if (!moved) return;
+      const newT = Math.max(T_MIN, Math.min(T_MAX, trackToT(mv.clientX)));
+      ev.t = newT;
+      m.style.left = `${(newT - T_MIN) / (T_MAX - T_MIN) * 100}%`;
+      m.title = `${ev.title} @ t=${newT.toFixed(3)}`;
+      setT(newT);
+    };
+    const onUp = () => {
+      document.body.style.cursor = '';
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (!moved) return;
+      _evDragMoved = true;
+      // Persist the new t — user-added events save the WHOLE record (no _origT key
+      // is meaningful for them); factory events save only the t delta keyed by _origT.
+      if (ev._added) saveAddedEvents(snapshotAddedEvents());
+      else {
+        const evTimes = loadEventTimes();
+        evTimes[ev._origT.toFixed(4)] = ev.t;
+        saveEventTimes(evTimes);
+      }
+      // Migrate the clip-override entry so the event's clip mapping follows it.
+      const newKey = ev.t.toFixed(3);
+      if (oldKey !== newKey && clipOverrides[oldKey]) {
+        clipOverrides[newKey] = clipOverrides[oldKey];
+        delete clipOverrides[oldKey];
+        saveClipOverrides(clipOverrides);
+        applyClipOverrides();
+      }
+      // currentEvent() picks the LAST ev with t <= now — needs sorted order.
+      EVENTS.sort((a, b) => a.t - b.t);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+  // While selecting an actor, ev-markers are hidden in favour of kf-markers — honour
+  // that state when a freshly-added event is wired up mid-session.
+  if (editActorName) m.style.display = 'none';
   elTrack.appendChild(m);
 }
+for (const ev of EVENTS) createEventMarker(ev);
+// Re-position every event marker from its current ev.t (used after a bulk t change,
+// e.g. after the async clips.json fetch applies a `__eventTimes` block).
+function refreshEventMarkerPositions() {
+  for (const ev of EVENTS) {
+    if (ev._marker) ev._marker.style.left = `${(ev.t - T_MIN) / (T_MAX - T_MIN) * 100}%`;
+  }
+}
 
-let editActorName = null;
+// editActorName is hoisted above createEventMarker; only `_kfDragMoved` lives here.
+let _kfDragMoved = false;   // shared flag: suppresses the click that follows a drag pointerup
 function refreshTimelineMarkers(actorName) {
   editActorName = actorName;
   elTrack.querySelectorAll('.kf-marker, .vis-marker').forEach(m => m.remove());
@@ -466,7 +697,41 @@ function refreshTimelineMarkers(actorName) {
     m.className = 'marker kf-marker';
     m.style.left = `${(f.t - T_MIN) / (T_MAX - T_MIN) * 100}%`;
     m.title = `keyframe @ t=${f.t.toFixed(3)}`;
-    m.addEventListener('click', (e) => { e.stopPropagation(); seekTo(f.t); });
+    // Click: jump to this keyframe (suppressed when the pointer just finished dragging).
+    m.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (_kfDragMoved) { _kfDragMoved = false; return; }
+      seekTo(f.t);
+    });
+    // Drag: re-time the keyframe by dragging the diamond left / right.
+    // Only active while EDIT mode is on.
+    m.addEventListener('pointerdown', (e) => {
+      if (!editor.active) return;
+      e.stopPropagation();
+      pause();
+      let moved = false;
+      const startX = e.clientX;
+      editor.beginKfDrag(actorName);
+      const onMove = (ev) => {
+        if (!moved && Math.abs(ev.clientX - startX) > 4) { moved = true; document.body.style.cursor = 'ew-resize'; }
+        if (!moved) return;
+        const newT = Math.max(T_MIN, Math.min(T_MAX, trackToT(ev.clientX)));
+        f.t = newT;
+        entities.edit.tracks[actorName].sort((a, b) => a.t - b.t);
+        m.style.left = `${(newT - T_MIN) / (T_MAX - T_MIN) * 100}%`;
+        m.title = `keyframe @ t=${newT.toFixed(3)}`;
+        setT(newT);
+      };
+      const onUp = () => {
+        document.body.style.cursor = '';
+        if (moved) { _kfDragMoved = true; editor.endKfDrag(actorName); }
+        else editor.cancelKfDrag();
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
     elTrack.appendChild(m);
   }
   // visibility keyframes (appear/disappear) — a second row of round markers below the track
@@ -641,23 +906,28 @@ function setInvertedTime(on) {
 // Phase entries: continuous multi-phase arcs (like Neil in Stalsk).
 //   phases: [{a,b,ta,tb,inv,self}, ...] where [a,b] is the subjT slice and [ta,tb] the t range.
 
-// TP 2: INV phase enters at t=0.736, hits turnstile at t=0.313, then FWD to t=0.714.
-const _tp2InvDur  = 0.736 - 0.313;
+// TP 2 & Neil 2 are inverted travellers we meet at the END of the big timeline. Subjectively
+// they walk backward from T_MAX (the very end) to the turnstile, then forward to their
+// forward-phase exit. So both INV phases now start at T_MAX (= 1.05), not mid-timeline.
+
+// TP 2: INV phase enters at t=T_MAX, hits turnstile at t=0.313, then FWD to t=0.714.
+const _tp2InvDur  = T_MAX - 0.313;
 const _tp2FwdDur  = 0.714 - 0.313;
 const _tp2Total   = _tp2InvDur + _tp2FwdDur;
 const TP2_MID     = _tp2InvDur / _tp2Total;
 const TP2_PHASES  = [
-  { a: 0,       b: TP2_MID, ta: 0.736, tb: 0.313, inv: true,  self: 'tp2i' },
+  { a: 0,       b: TP2_MID, ta: T_MAX, tb: 0.313, inv: true,  self: 'tp2i' },
   { a: TP2_MID, b: 1,       ta: 0.313, tb: 0.714, inv: false, self: 'tp2f' },
 ];
 
-// Neil 2: INV phase enters at t=0.376, hits turnstile at t=0.024, then FWD to t=0.846.
-const _n2InvDur  = 0.376 - 0.024;
+// Neil 2: INV phase enters at t=T_MAX (end of big timeline), walks backward to the turnstile
+// at t=0.024, then FWD to t=0.846.
+const _n2InvDur  = T_MAX - 0.024;
 const _n2FwdDur  = 0.846 - 0.024;
 const _n2Total   = _n2InvDur + _n2FwdDur;
 const NEIL2_MID  = _n2InvDur / _n2Total;
 const NEIL2_PHASES = [
-  { a: 0,        b: NEIL2_MID, ta: 0.376, tb: 0.024, inv: true,  self: 'neil2i' },
+  { a: 0,        b: NEIL2_MID, ta: T_MAX, tb: 0.024, inv: true,  self: 'neil2i' },
   { a: NEIL2_MID, b: 1,        ta: 0.024, tb: 0.846, inv: false, self: 'neil2f' },
 ];
 
@@ -799,6 +1069,8 @@ const editor = new Editor({
   getTime: () => t,
   onSelectionChange: (actorName) => refreshTimelineMarkers(actorName),
   onSeek: (target) => seekTo(target),
+  onKfChange: () => setT(t),   // re-evaluate 3D scene after a kf value is edited via inputs
+  onAddEvent: (t0) => addEventAtT(t0),
   onEnter: (on) => { if (on) { pause(); selectView('god'); } },
 });
 const editBtn = document.getElementById('edit-btn');

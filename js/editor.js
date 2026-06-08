@@ -35,12 +35,14 @@ function save(d) { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
 // current clock t → a keyframe on that actor's track). Persists to localStorage, applied
 // on load. Export/Import JSON, Reset, Ctrl/Cmd+Z undo, orbit recentres on selection.
 export class Editor {
-  constructor({ scene, camera, renderer, controls, editables, actorsApi, getTime, onEnter, onSelectionChange, onSeek, terrainParams, terrainDefaults, rebuildTerrain, namespace }) {
+  constructor({ scene, camera, renderer, controls, editables, actorsApi, getTime, onEnter, onSelectionChange, onSeek, onKfChange, onAddEvent, terrainParams, terrainDefaults, rebuildTerrain, namespace }) {
     if (namespace) { STORE_KEY = STORE_BASE + '_' + namespace; SLOTS_KEY = SLOTS_BASE + '_' + namespace; }
     this.scene = scene; this.camera = camera; this.renderer = renderer;
     this.controls = controls; this.editables = editables;
     this.actorsApi = actorsApi || null; this.getTime = getTime || (() => 0);
     this.onEnter = onEnter; this.onSelectionChange = onSelectionChange; this.onSeek = onSeek || null;
+    this.onKfChange = onKfChange || null;
+    this.onAddEvent = onAddEvent || null;
     this.terrainParams = terrainParams || null; this.terrainDefaults = terrainDefaults || {}; this.rebuildTerrain = rebuildTerrain || null;
     this.active = false; this.selected = null;
     this.store = load();
@@ -49,6 +51,8 @@ export class Editor {
     this._recenter = null;          // active smooth-recenter tween (selection change)
     this._gizmoMode = 'translate';  // current gizmo mode (translate/rotate/scale)
     this._suppressUndo = false;                 // true mid-scrub (one undo per drag, not per step)
+    this._panelMinimized = false;               // panel body hidden but edit mode stays active
+    this._lastKfT = -1;                         // last t when kf value inputs were built
     this._hovered = null; this.hoverHelper = null;
     this._hover = (e) => this.hover(e);
     this._terrainOpen = false;                  // the TERRAIN section is global + collapsed by default
@@ -142,6 +146,11 @@ export class Editor {
       window.removeEventListener('keydown', this._key);
       this.setHover(null);
       this.deselect();
+      // Clear minimized so the panel reopens fully next time edit mode is entered.
+      this._panelMinimized = false;
+      this.panel.classList.remove('minimized');
+      const minBtn = this.panel.querySelector('#ed-min');
+      if (minBtn) minBtn.textContent = '—';
     }
     if (this.onEnter) this.onEnter(on);
   }
@@ -213,7 +222,11 @@ export class Editor {
       this.controls.update();
       if (rc.t >= 1) this._recenter = null;
     }
-    if (this.isActor(this.selected)) this.refreshActorInfo();
+    if (this.isActor(this.selected)) {
+      this.refreshActorInfo();
+      const t = this.getTime();
+      if (t !== this._lastKfT) { this._lastKfT = t; this.refreshActorKfInputs(); }
+    }
     if (this.hoverHelper) this.hoverHelper.update();
   }
 
@@ -272,9 +285,14 @@ export class Editor {
   }
   commitActor(o) {
     const name = o.userData.trackName, t = this.getTime();
-    // Rotate-mode drags also record rotation.y onto the keyframe; translate/scale leave it alone.
-    const ry = this._gizmoMode === 'rotate' ? o.rotation.y : undefined;
-    this.actorsApi.setKeyframe(name, t, o.position, ry);
+    // Rotate edits ONLY the rotation key; Move/Scale edit ONLY the position key — never both, so a
+    // rotate-drag never drops a stray position keyframe (and vice versa). Read the heading from the
+    // QUATERNION, not o.rotation.y: XYZ-Euler clamps the middle (Y) axis to ±90°, which would otherwise
+    // snap any 2nd/3rd-quadrant turn straight back into the 1st/4th.
+    if (this._gizmoMode === 'rotate') {
+      const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(o.quaternion);
+      this.actorsApi.setKeyframe(name, t, undefined, Math.atan2(fwd.x, fwd.z));
+    } else this.actorsApi.setKeyframe(name, t, o.position);
     this.actorsApi.freeze.delete(name);
     this.store.tracks[name] = this.actorsApi.serializeTrack(name);
     save(this.store); this.updatePanel(); this.notifySelection();
@@ -295,6 +313,15 @@ export class Editor {
     const name = o.userData.trackName;
     this.pushTrackUndo(o);
     if (this.actorsApi.deleteKeyframe(name, this.getTime())) {
+      this.store.tracks[name] = this.actorsApi.serializeTrack(name); save(this.store);
+    } else { this.undoStack.pop(); }
+    this.updatePanel(); this.notifySelection();
+  }
+  deleteRotationKey() {       // strip only the rotation (ry) from the key at t, keeping its position
+    const o = this.selected; if (!o || !this.isActor(o)) return;
+    const name = o.userData.trackName;
+    this.pushTrackUndo(o);
+    if (this.actorsApi.deleteRotation(name, this.getTime())) {
       this.store.tracks[name] = this.actorsApi.serializeTrack(name); save(this.store);
     } else { this.undoStack.pop(); }
     this.updatePanel(); this.notifySelection();
@@ -432,6 +459,25 @@ export class Editor {
     this._trim();
   }
   pushEditsUndo() { this.undoStack.push({ type: 'store', store: JSON.parse(JSON.stringify(this.store)) }); this._trim(); }
+  // Public API for timeline kf-marker drag (called from app.js).
+  // beginKfDrag pushes one undo entry and suppresses further ones during the gesture.
+  // cancelKfDrag rolls back that entry when the pointer never actually moved.
+  // endKfDrag persists the modified track to localStorage.
+  beginKfDrag(name) {
+    if (!this._suppressUndo && this.actorsApi) {
+      this.undoStack.push({ type: 'track', name, dirtyBefore: name in this.store.tracks, data: this.actorsApi.serializeTrack(name) });
+      this._trim();
+    }
+    this._suppressUndo = true;
+  }
+  cancelKfDrag() { this.undoStack.pop(); this._suppressUndo = false; }
+  endKfDrag(name) {
+    this._suppressUndo = false;
+    if (!this.actorsApi) return;
+    this.store.tracks = this.store.tracks || {};
+    this.store.tracks[name] = this.actorsApi.serializeTrack(name);
+    save(this.store);
+  }
   _trim() { if (this.undoStack.length > 120) this.undoStack.shift(); }
   undo() {
     const e = this.undoStack.pop(); if (!e) return;
@@ -468,8 +514,15 @@ export class Editor {
     const wrap = document.createElement('div');
     wrap.className = 'editor-panel';
     wrap.innerHTML = `
-      <div class="ed-head"><span>SCENE EDITOR · P3</span><button class="ed-x" data-act="close">✕</button></div>
+      <div class="ed-head">
+        <span>SCENE EDITOR · P3</span>
+        <span class="ed-head-btns">
+          <button class="ed-x" id="ed-min" data-act="minimize" title="Hide panel (edit mode stays on)">—</button>
+          <button class="ed-x" data-act="exit" title="Exit edit mode">✕</button>
+        </span>
+      </div>
       <select class="ed-pick" id="ed-pick"><option value="">— pick a character —</option>${actorOpts}</select>
+      <button class="ed-addev" id="ed-addevent" data-act="addevent" title="Create a new event marker at the current timeline t">＋ Add event @ t</button>
       <div class="ed-sel" id="ed-sel">— click an object —</div>
       <div class="ed-modes">
         <button data-mode="translate" class="on">Move</button>
@@ -479,7 +532,9 @@ export class Editor {
       <div class="ed-read" id="ed-read"></div>
       <div class="ed-actor" id="ed-actor">
         <div class="ed-kf" id="ed-kf"></div>
-        <button data-act="delkey" id="ed-delkey">Delete keyframe @ t</button>
+        <div id="ed-kfvals"></div>
+        <button data-act="delkey" id="ed-delkey">Del position @ t</button>
+        <button data-act="delrot" id="ed-delrot">Del rotation @ t</button>
         <div class="ed-vis" id="ed-vis"></div>
       </div>
       <div class="ed-row">
@@ -516,10 +571,18 @@ export class Editor {
     const ta = wrap.querySelector('#ed-json');
     wrap.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
       switch (b.dataset.act) {
-        case 'close': this.setActive(false); break;
+        case 'addevent': if (this.onAddEvent) this.onAddEvent(this.getTime()); break;
+        case 'exit': this.setActive(false); break;
+        case 'minimize': {
+          this._panelMinimized = !this._panelMinimized;
+          wrap.classList.toggle('minimized', this._panelMinimized);
+          wrap.querySelector('#ed-min').textContent = this._panelMinimized ? '+' : '—';
+          break;
+        }
         case 'reset': this.resetSelected(); break;
         case 'deselect': this.deselect(); break;
         case 'delkey': this.deleteKeyframe(); break;
+        case 'delrot': this.deleteRotationKey(); break;
         case 'export': ta.value = this.exportJSON(); ta.select(); break;
         case 'import': ta.value = this.importJSON(ta.value) ? '✓ applied' : '✗ invalid JSON'; break;
         case 'resetall': if (confirm('Reset ALL scene edits?')) this.resetAll(); break;
@@ -543,6 +606,8 @@ export class Editor {
     this.updateReadout();
     this.refreshActorInfo();
     this.buildVisUI();
+    this._lastKfT = -1;           // force kf input rebuild on next tick
+    this.refreshActorKfInputs();
   }
   buildVisUI() {
     const host = this.panel.querySelector('#ed-vis'), o = this.selected;
@@ -600,6 +665,76 @@ export class Editor {
       save(this.store); this.buildVisUI(); this.notifySelection();
     } else this.undoStack.pop();
   }
+  // ---- keyframe value editing (#ed-kfvals) ----
+  // Builds numeric X/Y/Z (and ry) inputs for the keyframe at the current t, when one exists.
+  // Called from tick() when t changes, and from updatePanel() when selection changes.
+  refreshActorKfInputs() {
+    const host = this.panel.querySelector('#ed-kfvals');
+    if (!host) return;
+    const o = this.selected;
+    if (!this.isActor(o) || !this.actorsApi) { host.innerHTML = ''; return; }
+    const name = o.userData.trackName, t = this.getTime();
+    const hasPos = this.actorsApi.hasPosition ? this.actorsApi.hasPosition(name, t)
+                 : this.actorsApi.hasKeyframe(name, t);
+    const hasRot = !!(this.actorsApi.hasRotation && this.actorsApi.hasRotation(name, t));
+    if (!hasPos && !hasRot) {
+      host.innerHTML = '<div class="ed-kfhint">seek to a keyframe (◆) to edit its values</div>';
+      return;
+    }
+    // Find the live frame object in the track array so we can mutate it directly.
+    const track = (this.actorsApi.tracks || {})[name];
+    const f = track ? track.find(fr => Math.abs(fr.t - t) < 5e-4) : null;
+    if (!f) { host.innerHTML = ''; return; }
+    let html = '<div class="ed-kflabel">◆ Keyframe values</div>';
+    // `t` (timeline position of this diamond) — typing here re-times the keyframe.
+    html += `<div class="ed-kfrow ed-kfrow-t"><label>t</label><input class="ed-kfin" data-ax="t" type="number" step="0.001" value="${round(f.t)}"></div>`;
+    if (hasPos && f.p) {
+      html += `<div class="ed-kfrow"><label>X</label><input class="ed-kfin" data-ax="x" type="number" step="0.1" value="${round(f.p.x)}"></div>`;
+      html += `<div class="ed-kfrow"><label>Y</label><input class="ed-kfin" data-ax="y" type="number" step="0.1" value="${round(f.p.y)}"></div>`;
+      html += `<div class="ed-kfrow"><label>Z</label><input class="ed-kfin" data-ax="z" type="number" step="0.1" value="${round(f.p.z)}"></div>`;
+    }
+    if (hasRot && f.ry !== undefined) {
+      html += `<div class="ed-kfrow"><label>ry</label><input class="ed-kfin" data-ax="ry" type="number" step="0.001" value="${round(f.ry)}"></div>`;
+    }
+    host.innerHTML = html;
+    host.querySelectorAll('.ed-kfin').forEach(inp => {
+      inp.addEventListener('change', () => this.commitKfInput(f, name));
+      this.attachScrub(inp, parseFloat(inp.step));
+    });
+  }
+  commitKfInput(f, name) {
+    const host = this.panel.querySelector('#ed-kfvals');
+    if (!host) return;
+    // pushEditsUndo only when NOT already mid-scrub (beginScrub pushes once for the whole drag)
+    if (!this._suppressUndo) this.pushEditsUndo();
+    let tChanged = false;
+    host.querySelectorAll('.ed-kfin').forEach(inp => {
+      const ax = inp.dataset.ax, v = parseFloat(inp.value);
+      if (!isFinite(v)) return;
+      if      (ax === 't')                { if (f.t !== v) { f.t = v; tChanged = true; } }
+      else if (ax === 'x' && f.p) f.p.x = v;
+      else if (ax === 'y' && f.p) f.p.y = v;
+      else if (ax === 'z' && f.p) f.p.z = v;
+      else if (ax === 'ry')        f.ry  = v;
+    });
+    // If `t` changed, the track order may need fixing so interpolation stays monotonic.
+    if (tChanged) {
+      const track = (this.actorsApi.tracks || {})[name];
+      if (track) track.sort((a, b) => a.t - b.t);
+    }
+    this.store.tracks = this.store.tracks || {};
+    this.store.tracks[name] = this.actorsApi.serializeTrack(name);
+    save(this.store);
+    if (this.onKfChange) this.onKfChange();   // re-evaluates 3D scene at current t
+    // Tell the host app to redraw the timeline markers (so the diamond moves to the new t),
+    // and refresh the editor info readout (keyframe HERE / no keyframe here).
+    if (tChanged) {
+      if (this.onSelectionChange) this.onSelectionChange(name);
+      this._lastKfT = -1;   // force kf input rebuild (clock may no longer match the moved key)
+      this.refreshActorInfo();
+    }
+  }
+
   buildTerrainUI() {
     const host = this.panel.querySelector('#ed-terrain');
     if (!host) return;
@@ -637,10 +772,14 @@ export class Editor {
     const o = this.selected; if (!this.isActor(o) || !this.actorsApi) return;
     const name = o.userData.trackName, t = this.getTime();
     const here = this.actorsApi.hasKeyframe(name, t);
+    const hasPos = this.actorsApi.hasPosition ? this.actorsApi.hasPosition(name, t) : here;
     this.panel.querySelector('#ed-kf').innerHTML =
       `track <b>${name}</b> · ${this.actorsApi.count(name)} keys<br>clock t = ${t.toFixed(3)} · ${here ? 'keyframe HERE' : 'no keyframe here'}`;
     const del = this.panel.querySelector('#ed-delkey');
-    del.disabled = !here; del.style.opacity = here ? 1 : 0.4;
+    del.disabled = !hasPos; del.style.opacity = hasPos ? 1 : 0.4;
+    const hasRot = this.actorsApi.hasRotation && this.actorsApi.hasRotation(name, t);
+    const delr = this.panel.querySelector('#ed-delrot');
+    if (delr) { delr.disabled = !hasRot; delr.style.opacity = hasRot ? 1 : 0.4; }
     if (this.actorsApi.visMode === 'keys') {
       const vnow = this.panel.querySelector('#ed-vnow');
       if (vnow) vnow.textContent = this.actorsApi.visAt(name, t) ? 'shown' : 'hidden';
