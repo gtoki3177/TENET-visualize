@@ -58,7 +58,22 @@ export function buildLandmarks(root) {
   const editables = [];
   const tag = (o, id) => { o.userData.editId = id; o.userData.editLabel = id; editables.push(o); return o; };
 
-  // ---------- Main battlefield: ruined building cluster (NW) — sparse, well spread ----------
+  // ---------- Main battlefield: ruined building cluster (NW) ----------
+  // Layout curated in the editor (2026-06-08): 7 surplus ruins removed; the kept ruins were
+  // repositioned. The seeded loop still runs (and consumes its RNG) so each kept index keeps its
+  // original geometry; DELETED_BLDG skips the removed ones and BLDG_XFORM applies the baked XZ +
+  // rotation (Y re-grounded). Re-arrange here and re-bake squads to get new team paths.
+  const DELETED_BLDG = new Set([1, 2, 5, 6, 8, 9, 14]);
+  const BLDG_XFORM = {   // index: [x, z, rotationY]
+    0:  [2.925, -170.542, -0.121],
+    3:  [-27.19, -199.072, -0.306],
+    4:  [-103.383, -241.841, 0.186],
+    7:  [-99.059, -194.019, -0.225],
+    11: [-143.032, -203.435, 0.301],
+    12: [-60.613, -151.39, 0.154],
+    13: [-126.269, -137.842, -0.056],
+    // bldg-10, bldg-15 keep their generated positions
+  };
   const city = new THREE.Group();
   let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
   for (let i = 0; i < 16; i++) {
@@ -74,31 +89,16 @@ export function buildLandmarks(root) {
     }
     const w = 13 + rnd() * 17, d = 12 + rnd() * 14, h = 13 + rnd() * 30;
     const tan = rnd() > 0.8;
+    const genRot = rnd() * 0.7 - 0.35;     // consume RNG every iteration (keeps other indices stable)
+    if (DELETED_BLDG.has(i)) continue;     // surplus ruin — removed from the layout
     const b = ruin(w, h, d, tan ? COL.tan : COL.building);
-    b.position.set(x, gY(x, z) + h / 2, z);
-    b.rotation.y = rnd() * 0.7 - 0.35;
+    const xf = BLDG_XFORM[i];
+    if (xf) { b.position.set(xf[0], gY(xf[0], xf[1]) + h / 2, xf[1]); b.rotation.y = xf[2]; }
+    else { b.position.set(x, gY(x, z) + h / 2, z); b.rotation.y = genRot; }
     tag(b, 'bldg-' + i);
     city.add(b);
   }
   root.add(city);
-
-  // ---------- Battlefield entrance: a pair of blast-wall pylons ----------
-  const entrance = new THREE.Group();
-  const ex = POS.entrance.x, ez = POS.entrance.z, ey = gY(ex, ez);
-  for (let s = -1; s <= 1; s += 2) {
-    const pylon = edged(new THREE.Mesh(new THREE.BoxGeometry(7, 26, 14),
-      track(new THREE.MeshStandardMaterial({ color: COL.concrete, roughness: 0.95 }))), COL.edge, 0.5);
-    pylon.position.set(ex + s * 24, ey + 13, ez);
-    pylon.children[0].castShadow = true;
-    entrance.add(pylon);
-  }
-  // low cross-beam to read as a checkpoint gate
-  const beam = edged(new THREE.Mesh(new THREE.BoxGeometry(55, 4, 6),
-    track(new THREE.MeshStandardMaterial({ color: COL.concrete, roughness: 0.95 }))), COL.edge, 0.5);
-  beam.position.set(ex, ey + 24, ez);
-  entrance.add(beam);
-  tag(entrance, 'entrance');
-  root.add(entrance);
 
   // ---------- Turnstile: a vertical-walled funnel pit with a 6-panel central entrance ----------
   const ts = new THREE.Group();
@@ -145,11 +145,11 @@ export function buildLandmarks(root) {
   // ---------- Arches: a N–S line of tall rectangular portals spread beside the berm ----------
   // Four arches loosely distributed alongside the earthen embankment west of the LZ.
   const arches = new THREE.Group();
-  const archSpecs = [
-    { x: -18, z: 82,  span: 16, h: 58 },
-    { x: -34, z: 116, span: 14, h: 50 },
-    { x: -20, z: 152, span: 15, h: 54 },
-    { x: -38, z: 188, span: 13, h: 46 },
+  const archSpecs = [   // baked from editor (2026-06-08) — moved south alongside the berm
+    { x: -13.94, z: 118.32, span: 16, h: 58 },
+    { x: -33.15, z: 151.54, span: 14, h: 50 },
+    { x: -26.52, z: 196.53, span: 15, h: 54 },
+    { x: -36.25, z: 244.39, span: 13, h: 46 },
   ];
   archSpecs.forEach((sp, i) => {
     const a = portalArch(sp.span, sp.h, 5, 6);
@@ -160,68 +160,13 @@ export function buildLandmarks(root) {
   });
   root.add(arches);
 
-  // ---------- Stepped / layered building ----------
-  const stepped = new THREE.Group();
-  const sx = POS.stepped.x, sz = POS.stepped.z, sy = gY(sx, sz);
-  for (let i = 0; i < 5; i++) {
-    const slab = edged(new THREE.Mesh(new THREE.BoxGeometry(34 - i * 1.5, 2.4, 26 - i),
-      track(new THREE.MeshStandardMaterial({ color: COL.building, roughness: 0.95 }))), COL.edge, 0.45);
-    slab.position.set(sx, sy + 3 + i * 6, sz);
-    stepped.add(slab);
-  }
-  tag(stepped, 'stepped');
-  root.add(stepped);
+  // (Brown sphere cluster removed.)
 
-  // ---------- Brown spheres ----------
-  const spheres = new THREE.Group();
-  let s2 = 5; const r2 = () => (s2 = (s2 * 9301 + 49297) % 233280) / 233280;
-  for (let i = 0; i < 9; i++) {
-    const rad = 3 + r2() * 4;
-    const sp = new THREE.Mesh(new THREE.SphereGeometry(rad, 12, 10),
-      track(new THREE.MeshStandardMaterial({ color: COL.sphere, roughness: 0.9 })));
-    const x = POS.spheres.x + (r2() - 0.5) * 28;
-    const z = POS.spheres.z + (r2() - 0.5) * 22;
-    sp.position.set(x, gY(x, z) + rad * 0.8, z);
-    sp.castShadow = true; spheres.add(sp);
-  }
-  tag(spheres, 'spheres');
-  root.add(spheres);
+  // ---------- LZ / extraction zone ----------
+  // Ground pad circles + rings removed (the MAIN LZ / EXTRACTION landmark labels are enough).
+  // Empty tagged groups kept so their positions stay editable and the return stays valid.
+  const lz = new THREE.Group(); tag(lz, 'lz'); root.add(lz);
+  const exz = new THREE.Group(); tag(exz, 'exz'); root.add(exz);
 
-  // ---------- LZ: helipads + blue shipping containers (far south) ----------
-  const lz = new THREE.Group();
-  const lx = POS.lz.x, lz_ = POS.lz.z;
-  for (let i = 0; i < 2; i++) {
-    const pad = new THREE.Mesh(new THREE.CircleGeometry(16, 32),
-      track(new THREE.MeshStandardMaterial({ color: COL.groundLo, roughness: 1 })));
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.set(lx - 26 + i * 52, gY(lx, lz_) + 0.2, lz_ + 8);
-    lz.add(pad);
-    const hRing = new THREE.Mesh(new THREE.RingGeometry(7, 8.5, 6),
-      new THREE.MeshBasicMaterial({ color: COL.accent, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
-    hRing.rotation.x = -Math.PI / 2; hRing.position.copy(pad.position); hRing.position.y += 0.05;
-    lz.add(hRing);
-  }
-  tag(lz, 'lz');
-  root.add(lz);
-
-  // ---------- Extraction zone: pads atop the SE hypocenter highland ----------
-  // Blue Team (inverted) lands here and Red Team extracts here — the surface
-  // directly above the buried chamber, where Neil drives in at the end.
-  const exz = new THREE.Group();
-  const hx = POS.hill.x, hz = POS.hill.z, hy = gY(hx, hz);
-  for (let i = 0; i < 2; i++) {
-    const pad = new THREE.Mesh(new THREE.CircleGeometry(15, 32),
-      track(new THREE.MeshStandardMaterial({ color: COL.groundLo, roughness: 1 })));
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.set(hx - 22 + i * 44, hy + 0.2, hz - 8);
-    exz.add(pad);
-    const hRing = new THREE.Mesh(new THREE.RingGeometry(6.5, 8, 6),
-      new THREE.MeshBasicMaterial({ color: COL.accent, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
-    hRing.rotation.x = -Math.PI / 2; hRing.position.copy(pad.position); hRing.position.y += 0.05;
-    exz.add(hRing);
-  }
-  tag(exz, 'exz');
-  root.add(exz);
-
-  return { city, entrance, turnstile: ts, arches, stepped, spheres, lz, exz, surfaceMats, editables };
+  return { city, turnstile: ts, arches, lz, exz, surfaceMats, editables };
 }

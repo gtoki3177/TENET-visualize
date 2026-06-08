@@ -6,6 +6,7 @@ import { buildEntities } from './entities.js';
 import { ViewManager } from './views.js';
 import { Editor } from './editor.js';
 import { lerp, clamp01, terrainParams, terrainDefaults } from './config.js';
+import { extractObstacles, simulateSquad } from './squads.js';
 
 // Apply saved terrain params (editor P4) BEFORE the world mesh is built from groundHeight.
 try { const s = JSON.parse(localStorage.getItem('tenet_scene_edits') || '{}'); if (s && s.terrain) Object.assign(terrainParams, s.terrain); } catch (e) {}
@@ -510,6 +511,19 @@ const editor = new Editor({
 const editBtn = document.getElementById('edit-btn');
 editor.editBtn = editBtn;
 editBtn.addEventListener('click', () => editor.toggle());
+
+// ---------- Squad paths: bake at load (after editor overrides → live building positions) ----------
+// Deterministic, so moving a building / leader route and reloading re-derives fresh team paths.
+let squadObstacles = [];
+try {
+  squadObstacles = extractObstacles(scene, THREE);
+  for (const team of ['red', 'blue']) {
+    const cfg = entities.squads[team];
+    const lead = entities.edit.tracks[team + '-lead'];   // live leader keyframes (post editor overrides)
+    if (lead && lead.length) cfg.route = lead.map(f => ({ t: f.t, x: f.p.x, z: f.p.z }));
+    entities.setSquadTracks(team, simulateSquad(cfg, squadObstacles));
+  }
+} catch (err) { console.warn('squad path bake failed — falling back to straight-line movement', err); }
 
 // ---------- Arrow keys: jump to prev/next marker ----------
 // Normally the 14 event beats; while a character is selected in the editor, that

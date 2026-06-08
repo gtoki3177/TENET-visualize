@@ -1,0 +1,7 @@
+{
+  "name": "tenet-visualize",
+  "version": "1.0.0",
+  "description": "TENET 3D scene visualizations (Stalsk-12 & Oslo Freeport) — vanilla ES modules + three.js, no build step.",
+  "type": "module",
+  "private": true
+}

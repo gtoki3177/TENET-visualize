@@ -47,6 +47,7 @@ export class Editor {
     this.undoStack = [];
     this._wp = new THREE.Vector3();
     this._recenter = null;          // active smooth-recenter tween (selection change)
+    this._gizmoMode = 'translate';  // current gizmo mode (translate/rotate/scale)
     this._suppressUndo = false;                 // true mid-scrub (one undo per drag, not per step)
     this._hovered = null; this.hoverHelper = null;
     this._hover = (e) => this.hover(e);
@@ -271,7 +272,9 @@ export class Editor {
   }
   commitActor(o) {
     const name = o.userData.trackName, t = this.getTime();
-    this.actorsApi.setKeyframe(name, t, o.position);
+    // Rotate-mode drags also record rotation.y onto the keyframe; translate/scale leave it alone.
+    const ry = this._gizmoMode === 'rotate' ? o.rotation.y : undefined;
+    this.actorsApi.setKeyframe(name, t, o.position, ry);
     this.actorsApi.freeze.delete(name);
     this.store.tracks[name] = this.actorsApi.serializeTrack(name);
     save(this.store); this.updatePanel(); this.notifySelection();
@@ -285,7 +288,7 @@ export class Editor {
     };
     save(this.store); this.updateReadout();
   }
-  setMode(m) { this.tc.setMode(m); }
+  setMode(m) { this.tc.setMode(m); this._gizmoMode = m; }
 
   deleteKeyframe() {
     const o = this.selected; if (!o || !this.isActor(o)) return;

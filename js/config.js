@@ -29,14 +29,14 @@ export const COL = {
 
 // Landmark coordinates (see header for the layout).
 export const POS = {
-  lz:        { x: 0,    z: 182 },   // SW foreground — Red Team's main LZ (pulled further south)
-  arches:    { x: -24,  z: 130 },   // representative centre of the arch line (spread alongside berm)
-  turnstile: { x: -60,  z: -12 },   // NW of the arches (pulled south, clear of the battlefield)
+  lz:        { x: 52.64, z: 284.23 },  // SW foreground — Red Team's main LZ (baked from editor 2026-06-08)
+  arches:    { x: -27,  z: 178 },   // representative centre of the arch line (baked, moved south)
+  turnstile: { x: -19.24, z: -1.58 },  // baked from editor (2026-06-08) — pit + choreography follow
   entrance:  { x: -52,  z: -108 },  // mouth of the main battlefield
   spheres:   { x: -28,  z: -128 },  // battlefield feature (moved north, out of the turnstile pit)
   stepped:   { x: -98,  z: -120 },  // battlefield feature
-  building:  { x: -18,  z: -150 },  // double-exploding building (battlefield)
-  cave:      { x: 25,   z: -195 },  // tunnel entrance (入口) — NE edge of battlefield
+  building:  { x: -40,  z: -230 },  // double-exploding building (5:00) — just SE of the tunnel entrance
+  cave:      { x: -75,  z: -290 },  // tunnel entrance — directly north of the building cluster
 
   // Eastern detonation hypocenter + buried chamber (far EAST-SOUTH)
   hill:      { x: 360,  z: 70  },   // big terraced hill — detonation point (further south)
@@ -58,7 +58,7 @@ export const terrainDefaults = Object.freeze({
   hillR: 130, hillH: 58,            // detonation hill: radius, height
   apronHalfW: 92, apronLen: 320,    // hill approach ramp: half-width, length
   basinR: 60, basinDepth: 5, basinFunnel: 9,   // turnstile pit: radius, wall-base depth, funnel depth to centre
-  bermH: 46, bermCenterZ: 130,      // arches berm: height, N–S centre (the arch line)
+  bermH: 46, bermCenterZ: 170,      // arches berm: height, N–S centre (baked from editor — moved south)
 });
 export const terrainParams = { ...terrainDefaults };
 
@@ -101,11 +101,7 @@ export function groundHeight(x, z) {
     }
   }
 
-  // Open-pit mine terraces: north wall (behind the battlefield) + far-west wall.
-  let wall = 0;
-  if (z < -190) wall += (-190 - z) * 0.34;
-  if (x < -150) wall += (-150 - x) * 0.26;
-  if (wall > 0) y += terrace(wall);
+  // (North & west mine-pit walls removed — the battlefield ground reads as a flat plane.)
 
   // Turnstile arena: a closed, vertical-walled circular pit collapsing to the centre.
   // The visible wall + funnel are ONE smooth lathe mesh (landmarks.js); the coarse terrain

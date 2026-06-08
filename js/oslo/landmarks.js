@@ -363,21 +363,8 @@ export function buildLandmarks(root) {
     deb.rotation.set(rnd() * 0.3, rnd() * Math.PI, rnd() * 0.3);
     planeGroup.add(deb);
   }
-  const createFireBlob = (x, y, z, sz) => {
-    const bGroup = new THREE.Group(); bGroup.position.set(x, y, z);
-    const colors = [0xe62915, 0xff8c00, 0xffd700];
-    for (let i = 0; i < 4; i++) {
-      const geo = new THREE.IcosahedronGeometry(sz * (0.5 + rnd() * 0.8), 0);
-      const mat = new THREE.MeshStandardMaterial({ color: colors[Math.floor(rnd() * colors.length)], roughness: 0.8, flatShading: true });
-      const m = new THREE.Mesh(geo, track(mat, surfaceMats));
-      m.position.set((rnd() - 0.5) * sz, (rnd() - 0.5) * sz, (rnd() - 0.5) * sz);
-      bGroup.add(m);
-    }
-    return bGroup;
-  };
-  planeGroup.add(createFireBlob(24, 6, 0, 5));    // nose fire
-  planeGroup.add(createFireBlob(2, 4, 12, 4));    // wing root
-  planeGroup.add(createFireBlob(10, 5, -6, 4));
+  // (Fire is the particle system in world.js, anchored at the crash site — no mesh blobs on the
+  // plane, which used to travel in with it.)
 
   const vanGroup = new THREE.Group();
   tag(vanGroup, 'ambulance_van');
