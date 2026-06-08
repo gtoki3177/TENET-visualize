@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { COL, POS, groundHeight, clamp01, lerp } from './config.js';
+import { sampleSquadTrack } from './squads.js';
 
 const gY = groundHeight;
 
@@ -11,6 +12,25 @@ function kf(frames, t, out) {
     if (t <= b.t) return out.lerpVectors(a.p, b.p, (t - a.t) / (b.t - a.t));
   }
   return out.copy(frames[frames.length - 1].p);
+}
+
+// Interpolate rotation.y across keyframes that carry an `ry`. Returns null when no key has one
+// (→ the actor keeps its automatic facing). Keys without `ry` are skipped, so a few rotation
+// keys drive the whole spin while position keys in between don't disturb it.
+function kfRotY(frames, t) {
+  let prev = null, next = null;
+  for (const f of frames) {
+    if (f.ry === undefined) continue;
+    if (f.t <= t) prev = f;
+    else if (!next) next = f;
+  }
+  if (!prev && !next) return null;
+  if (!prev) return next.ry;
+  if (!next) return prev.ry;
+  let d = next.ry - prev.ry;                       // shortest-arc
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d < -Math.PI) d += 2 * Math.PI;
+  return prev.ry + d * (t - prev.t) / (next.t - prev.t);
 }
 const _v = new THREE.Vector3();   // shared scratch for per-frame sampling
 const gp = (x, z) => new THREE.Vector3(x, gY(x, z), z);
@@ -72,18 +92,6 @@ function makeCar(color) {
   return g;
 }
 
-function makeBurst(center, color) {
-  const N = 90;
-  const geo = new THREE.BufferGeometry();
-  const dirs = [];
-  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-  for (let i = 0; i < N; i++) dirs.push(new THREE.Vector3(
-    Math.random() - 0.5, Math.random() * 0.8 + 0.1, Math.random() - 0.5
-  ).normalize().multiplyScalar(14 + Math.random() * 30));
-  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: 1.7, transparent: true, opacity: 0.9 }));
-  pts.userData = { center, dirs };
-  return pts;
-}
 
 export function buildEntities(scene, world) {
   const root = new THREE.Group();
@@ -145,6 +153,71 @@ export function buildEntities(scene, world) {
       pHypo: gp(hill.x - 28 + (i % 4) * 13, hill.z - 28 + Math.floor(i / 4) * 11) });
   }
 
+  // ---------- Squad path generation (see js/squads.js) ----------
+  // The leader (member 0) leads the squad from the LZ across the battlefield to the hypocenter;
+  // the rest flock organically behind him (cohesion + separation + obstacle avoidance — no fixed
+  // formation). The sim runs in app.js at load (once the live obstacle list is known) and caches
+  // per-soldier tracks via setSquadTracks; update() samples them, else falls back to the old lerp.
+  // The leader's path is an EDITABLE keyframe track ('red-lead' / 'blue-lead' — K it like any
+  // character); the followers flock to it. Defaults are the LZ → battlefield → hypocenter beats.
+  // Editing the leader + reloading re-bakes the followers (they're generated from this path).
+  const redLeadFrames = [   // baked from editor (2026-06-09)
+    { t: 0.08, p: up(26.64, -0.87, 292.23) },
+    { t: 0.2,  p: up(15.53, -0.67, 170.9) },
+    { t: 0.25, p: up(0.86, -0.59, 90.99) },
+    { t: 0.29, p: up(-63.96, -0.53, 68.32) },
+    { t: 0.38, p: up(-112.17, -0.39, -2.32) },
+    { t: 0.41, p: up(-161.44, -0.33, -131.25) },
+    { t: 0.45, p: up(-115.78, -0.26, -200.13) },
+    { t: 0.46, p: up(-112.83, -0.26, -220.14) },
+    { t: 0.48, p: up(-79.72, -0.23, -226.22) },
+    { t: 0.5,  p: up(-65.4, -0.19, -276.15) },
+    { t: 0.53, p: up(-65.41, 0.01, -276.03) },
+    { t: 0.57, p: up(-75.37, 0.49, -219.25) },
+    { t: 0.59, p: up(-52.62, 0.69, -189.05) },
+    { t: 0.63, p: up(-19.46, 1.08, -147.37) },
+    { t: 0.78, p: up(130.02, 2.62, -80.9) },
+    { t: 0.84, p: up(219.71, 33.92, -19.84) },
+    { t: 0.89, p: up(294.45, 59.18, 31.05) },
+    { t: 0.94, p: up(368, 58.25, 66) },
+  ];
+  const blueLeadFrames = [   // baked from editor (2026-06-09)
+    { t: 0.08, p: up(102.64, 0.1, 318.23) },
+    { t: 0.33, p: up(49.92, 0.86, 59.73) },
+    { t: 0.37, p: up(59.44, 0.98, -22.57) },
+    { t: 0.44, p: up(-19.72, 1.21, -147.41) },
+    { t: 0.47, p: up(-59.92, 1.29, -193.52) },
+    { t: 0.48, p: up(-41.45, 1.33, -220.92) },
+    { t: 0.5,  p: up(-41.76, 1.4, -276.17) },
+    { t: 0.53, p: up(-40.41, 1.48, -275.02) },
+    { t: 0.63, p: up(5.39, 1.27, -203.37) },
+    { t: 0.76, p: up(116.89, 0.98, -128.91) },
+    { t: 0.78, p: up(145, 1.86, -107.56) },
+    { t: 0.81, p: up(178.38, 11.11, -82.21) },
+    { t: 0.84, p: up(245.94, 43.73, -7.53) },
+    { t: 0.87, p: up(296.85, 59.64, 23.18) },
+    { t: 0.9,  p: up(335.98, 59.41, 46.78) },
+    { t: 0.94, p: up(334.69, 59.42, 89.73) },
+  ];
+  const squadConfig = (members, insSpot, leadFrames) => {
+    let t0 = 1, t1 = 0;
+    for (const o of members) { t0 = Math.min(t0, o.emergeT); t1 = Math.max(t1, o.boardT); }
+    return {
+      route: leadFrames.map((f) => ({ t: f.t, x: f.p.x, z: f.p.z })),   // leader path = its keyframes
+      window: [t0, t1],
+      members: members.map((o) => ({
+        emergeT: o.emergeT, boardT: o.boardT,
+        spawn: { x: insSpot(o.heli).x, z: insSpot(o.heli).z },
+      })),
+    };
+  };
+  const squads = {
+    red:  squadConfig(redTeam,  redInsSpot,  redLeadFrames),
+    blue: squadConfig(blueTeam, blueInsSpot, blueLeadFrames),
+  };
+  const squadTracks = { red: null, blue: null };
+  const setSquadTracks = (team, tracks) => { squadTracks[team] = tracks; };
+
   // ---------- Protagonist & Ives (forward): LZ → north cave → underground SE to the vault ----------
   const tp = makeUnit(COL.forward, 1.15); root.add(tp);
   const ives = makeUnit(COL.forward, 1.15); root.add(ives);
@@ -198,11 +271,6 @@ export function buildEntities(scene, world) {
     { t: 1.10, p: gp(ts.x + 4, ts.z) },                     // enters the turnstile (with his forward self)
   ];
 
-  // ---------- The reversing bullet ----------
-  const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 6),
-    new THREE.MeshBasicMaterial({ color: 0xffcf6b }));
-  bullet.visible = false; root.add(bullet);
-  const gunPt = up(volk.x, vy + 5, volk.z), hitPt = up(gate.x, vy + 5, gate.z + 6);
 
   // ---------- Neil — FWD: appears at the turnstile at t=0.40 (forward/red copy) ----------
   // Reverts at the turnstile (→ red), gets in the car, rides through the rescue, then
@@ -264,14 +332,7 @@ export function buildEntities(scene, world) {
     new THREE.MeshBasicMaterial({ color: COL.forward, transparent: true, opacity: 0 }));
   trap.rotation.x = -Math.PI / 2; trap.position.set(cave.x, cy + 0.6, cave.z); root.add(trap);
 
-  // ---------- Battlefield bursts (forward expands, inverted contracts) ----------
-  const bursts = [
-    { p: makeBurst(gp(-50, -110).setY(gY(-50, -110) + 8), COL.forward), inv: false },
-    { p: makeBurst(gp(-20, -150).setY(gY(-20, -150) + 8), COL.forward), inv: false },
-    { p: makeBurst(gp(-70, -90).setY(gY(-70, -90) + 8), COL.inverted), inv: true },
-    { p: makeBurst(gp(0, -130).setY(gY(0, -130) + 8), COL.inverted), inv: true },
-  ];
-  bursts.forEach(b => root.add(b.p));
+  // (Battlefield red/blue explosion-particle bursts removed.)
 
   const followables = {
     red:         { obj: redTeam[0].u, offset: new THREE.Vector3(90, 70, 110),  name: 'Red Team' },
@@ -343,32 +404,66 @@ export function buildEntities(scene, world) {
 
     // Red: hidden inside the Chinook until emergeT → spills out → assaults → re-boards the
     // extraction Chinook at boardT (walks into it, then vanishes "aboard" before it lifts).
-    redTeam.forEach(o => {
+    redTeam.forEach((o, i) => {
       const spawn = redInsSpot(o.heli);
       if (t < o.emergeT) { o.u.visible = false; o.u.position.copy(spawn); return; }
-      if (t >= o.boardT) {
+      if (i === 0) {                              // LEADER — fully keyframed (editable for the whole path)
+        if (FREEZE.has('red-lead')) { o.u.visible = true; return; }          // gizmo controls it
+        if (t > redLeadFrames[redLeadFrames.length - 1].t) { o.u.visible = false; return; }  // aboard after last key
+        o.u.visible = true;
+        kf(redLeadFrames, t, _v);
+        if (t < o.emergeT + 0.05) o.u.position.lerpVectors(spawn, _v, clamp01((t - o.emergeT) / 0.05));
+        else o.u.position.copy(_v);
+        return;
+      }
+      const tr = squadTracks.red && squadTracks.red[i];
+      if (t >= o.boardT) {                        // followers re-board the extraction Chinook
         const f = clamp01((t - o.boardT) / 0.05);
-        o.u.position.lerpVectors(o.pHypo, redExtSpot, f);
-        o.u.visible = f < 1;                    // climbs in, then gone (aboard)
+        if (tr) { const b = sampleSquadTrack(tr, o.boardT); _v.set(b.x, gY(b.x, b.z), b.z); }
+        else _v.copy(o.pHypo);
+        o.u.position.lerpVectors(_v, redExtSpot, f);
+        o.u.visible = f < 1;
         return;
       }
       o.u.visible = true;
-      if (t < 0.62) o.u.position.lerpVectors(spawn, o.pBat, clamp01((t - o.emergeT) / 0.5));
+      if (tr) {
+        const pp = sampleSquadTrack(tr, t); _v.set(pp.x, gY(pp.x, pp.z), pp.z);
+        if (t < o.emergeT + 0.05) o.u.position.lerpVectors(spawn, _v, clamp01((t - o.emergeT) / 0.05));
+        else o.u.position.copy(_v);
+      }
+      else if (t < 0.62) o.u.position.lerpVectors(spawn, o.pBat, clamp01((t - o.emergeT) / 0.5));
       else o.u.position.lerpVectors(o.pBat, o.pHypo, clamp01((t - 0.62) / (o.boardT - 0.62)));
     });
     // Blue: emerges sequentially from the LZ containers → fights → climbs into the
     // hypocenter containers at boardT, which then lift away with them aboard.
-    blueTeam.forEach(o => {
+    blueTeam.forEach((o, i) => {
       const spawn = blueInsSpot(o.heli);
       if (t < o.emergeT) { o.u.visible = false; o.u.position.copy(spawn); return; }
+      if (i === 0) {                              // LEADER — fully keyframed (editable for the whole path)
+        if (FREEZE.has('blue-lead')) { o.u.visible = true; return; }
+        if (t > blueLeadFrames[blueLeadFrames.length - 1].t) { o.u.visible = false; return; }
+        o.u.visible = true;
+        kf(blueLeadFrames, t, _v);
+        if (t < o.emergeT + 0.05) o.u.position.lerpVectors(spawn, _v, clamp01((t - o.emergeT) / 0.05));
+        else o.u.position.copy(_v);
+        return;
+      }
+      const tr = squadTracks.blue && squadTracks.blue[i];
       if (t >= o.boardT) {
         const f = clamp01((t - o.boardT) / 0.05);
-        o.u.position.lerpVectors(o.pHypo, blueExtSpot(o.heli), f);
+        if (tr) { const b = sampleSquadTrack(tr, o.boardT); _v.set(b.x, gY(b.x, b.z), b.z); }
+        else _v.copy(o.pHypo);
+        o.u.position.lerpVectors(_v, blueExtSpot(o.heli), f);
         o.u.visible = f < 1;                    // loaded into the container, then gone
         return;
       }
       o.u.visible = true;
-      if (t < 0.5) o.u.position.lerpVectors(spawn, o.pBat, clamp01((t - o.emergeT) / 0.5));
+      if (tr) {
+        const pp = sampleSquadTrack(tr, t); _v.set(pp.x, gY(pp.x, pp.z), pp.z);
+        if (t < o.emergeT + 0.05) o.u.position.lerpVectors(spawn, _v, clamp01((t - o.emergeT) / 0.05));
+        else o.u.position.copy(_v);
+      }
+      else if (t < 0.5) o.u.position.lerpVectors(spawn, o.pBat, clamp01((t - o.emergeT) / 0.5));
       else o.u.position.lerpVectors(o.pBat, o.pHypo, clamp01((t - 0.5) / (o.boardT - 0.5)));
     });
 
@@ -392,8 +487,12 @@ export function buildEntities(scene, world) {
     car.visible = inWindows(visSpec.car, t);
     if (!FREEZE.has('car')) {
       kf(carFrames, t, car.position);
-      kf(carFrames, Math.min(1.10, t + 0.02), _v);
-      if (_v.distanceTo(car.position) > 0.4) car.lookAt(_v.x, car.position.y, _v.z);
+      const ry = kfRotY(carFrames, t);
+      if (ry !== null) car.rotation.set(0, ry, 0);          // keyframed rotation (kept flat)
+      else {                                                 // else auto-face the travel direction
+        kf(carFrames, Math.min(1.10, t + 0.02), _v);
+        if (_v.distanceTo(car.position) > 0.4) car.lookAt(_v.x, car.position.y, _v.z);
+      }
     }
     // While riding (invisible), the FWD self IS the car — so following Neil — FWD
     // tracks the car's path instead of drifting along his straight keyframe gap.
@@ -423,32 +522,15 @@ export function buildEntities(scene, world) {
       }
     }
 
-    bullet.visible = t > 0.71 && t < 0.77;
-    if (bullet.visible) {
-      const f = (t - 0.71) / 0.06;
-      const k = f < 0.5 ? f / 0.5 : (1 - f) / 0.5;
-      bullet.position.lerpVectors(gunPt, hitPt, k);
-    }
 
     trap.material.opacity = clamp01((t - 0.52) / 0.04) * 0.7 * (1 - clamp01((t - 0.72) / 0.2));
     ropes.visible = t > 0.85 && t < 0.99;
-
-    bursts.forEach(b => {
-      const arr = b.p.geometry.attributes.position.array;
-      const amt = b.inv ? 1 - clamp01((t - 0.1) / 0.4) : clamp01((t - 0.5) / 0.4);
-      b.p.userData.dirs.forEach((d, i) => {
-        arr[i*3] = b.p.userData.center.x + d.x * amt;
-        arr[i*3+1] = b.p.userData.center.y + d.y * amt;
-        arr[i*3+2] = b.p.userData.center.z + d.z * amt;
-      });
-      b.p.geometry.attributes.position.needsUpdate = true;
-      b.p.material.opacity = 0.15 + 0.7 * (1 - amt);
-    });
   }
 
   // ---------- Editor hooks (P2): expose keyframe tracks for the in-app editor ----------
   const r3 = (v) => Math.round(v * 1000) / 1000;
-  const editTracks = { tp: tpFrames, ives: ivesFrames, neil: neilFrames, neil3: neil3Frames, car: carFrames, volkov: volkovFrames, neilGate: futureRun };
+  const editTracks = { tp: tpFrames, ives: ivesFrames, neil: neilFrames, neil3: neil3Frames, car: carFrames, volkov: volkovFrames, neilGate: futureRun,
+    'red-lead': redLeadFrames, 'blue-lead': blueLeadFrames };
   const editActors = [
     { obj: tp,       id: 'char:tp',       name: 'tp',       label: 'TP' },
     { obj: ives,     id: 'char:ives',     name: 'ives',     label: 'Ives' },
@@ -457,9 +539,15 @@ export function buildEntities(scene, world) {
     { obj: neilGate, id: 'char:neilGate', name: 'neilGate', label: 'Neil — After (run-back)' },
     { obj: car,      id: 'char:car',      name: 'car',      label: "Neil's car" },
     { obj: volkov,   id: 'char:volkov',   name: 'volkov',   label: 'Volkov' },
+    { obj: redTeam[0].u,  id: 'char:red-lead',  name: 'red-lead',  label: 'Red Leader' },
+    { obj: blueTeam[0].u, id: 'char:blue-lead', name: 'blue-lead', label: 'Blue Leader' },
   ];
   for (const a of editActors) { a.obj.userData.editId = a.id; a.obj.userData.editKind = 'actor'; a.obj.userData.trackName = a.name; }
-  const serTrack = (frames) => frames.map(f => [r3(f.t), r3(f.p.x), r3(f.p.y), r3(f.p.z)]);
+  // Keyframe = {t, p, ry?}. ry (rotation about Y) is optional — present only on keys the user
+  // rotated; serialised as a 5th column so position-only tracks stay [t,x,y,z].
+  const serTrack = (frames) => frames.map(f => f.ry !== undefined
+    ? [r3(f.t), r3(f.p.x), r3(f.p.y), r3(f.p.z), r3(f.ry)]
+    : [r3(f.t), r3(f.p.x), r3(f.p.y), r3(f.p.z)]);
   const baseTracks = {};
   for (const k in editTracks) baseTracks[k] = serTrack(editTracks[k]);
   const baseVis = {};
@@ -473,11 +561,14 @@ export function buildEntities(scene, world) {
     resetVis(name) { if (name in visSpec) visSpec[name] = baseVis[name] ? baseVis[name].map((iv) => [...iv]) : null; },
     count(name) { const f = editTracks[name]; return f ? f.length : 0; },
     hasKeyframe(name, t, eps = 0.004) { const f = editTracks[name]; return !!f && f.some(k => Math.abs(k.t - t) < eps); },
-    setKeyframe(name, t, pos, eps = 0.004) {
+    setKeyframe(name, t, pos, ry, eps = 0.004) {
       const f = editTracks[name]; if (!f) return;
       const i = f.findIndex(k => Math.abs(k.t - t) < eps);
-      if (i >= 0) f[i].p.copy(pos);
-      else { const nf = { t, p: pos.clone() }; const j = f.findIndex(k => k.t > t); if (j < 0) f.push(nf); else f.splice(j, 0, nf); }
+      if (i >= 0) { f[i].p.copy(pos); if (ry !== undefined) f[i].ry = ry; }
+      else {
+        const nf = { t, p: pos.clone() }; if (ry !== undefined) nf.ry = ry;
+        const j = f.findIndex(k => k.t > t); if (j < 0) f.push(nf); else f.splice(j, 0, nf);
+      }
     },
     deleteKeyframe(name, t, eps = 0.004) {
       const f = editTracks[name]; if (!f || f.length <= 1) return false;
@@ -488,7 +579,12 @@ export function buildEntities(scene, world) {
     serialize() { const o = {}; for (const k in editTracks) o[k] = serTrack(editTracks[k]); return o; },
     applyTrack(name, data) {
       const f = editTracks[name]; if (!f || !Array.isArray(data)) return;
-      f.length = 0; for (const [t, x, y, z] of data) f.push({ t, p: new THREE.Vector3(x, y, z) });
+      f.length = 0;
+      for (const [t, x, y, z, ry] of data) {
+        const kf = { t, p: new THREE.Vector3(x, y, z) };
+        if (ry !== undefined) kf.ry = ry;
+        f.push(kf);
+      }
     },
     resetTrack(name) { this.applyTrack(name, baseTracks[name]); },
   };
@@ -508,5 +604,5 @@ export function buildEntities(scene, world) {
     });
   }
 
-  return { root, followables, flags, update, setXray, refs: { tp, ives, neil, neil3, neilGate, volkov, car }, edit };
+  return { root, followables, flags, update, setXray, squads, setSquadTracks, refs: { tp, ives, neil, neil3, neilGate, volkov, car }, edit };
 }

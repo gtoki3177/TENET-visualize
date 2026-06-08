@@ -17,100 +17,12 @@ export function buildWorld(scene) {
     color: COL.tarmac, roughness: 0.92, metalness: 0.02
   });
   const tarmac = new THREE.Mesh(tarmacGeo, tarmacMat);
-  tarmac.position.y = -0.1;
+  tarmac.position.set(0, -0.1, -120);   // shifted north so the freeport sits centred on the floor
   tarmac.receiveShadow = true;
   root.add(tarmac);
 
-  // Taxiway center line (yellow)
-  const taxiLineMat = new THREE.MeshStandardMaterial({
-    color: COL.tarmacLine, roughness: 0.8, emissive: COL.tarmacLine, emissiveIntensity: 0.15
-  });
-  // Dashed center line running east-west across the south area
-  for (let i = -8; i < 8; i++) {
-    const dash = new THREE.Mesh(new THREE.BoxGeometry(12, 0.08, 0.6), taxiLineMat);
-    dash.position.set(i * 18, 0.01, 160);
-    root.add(dash);
-  }
-
-  // Edge markings (white lines along the building perimeter)
-  const edgeLineMat = new THREE.MeshStandardMaterial({
-    color: COL.tarmacWhite, roughness: 0.85
-  });
-  // South edge line
-  const southEdge = new THREE.Mesh(new THREE.BoxGeometry(120, 0.08, 0.4), edgeLineMat);
-  southEdge.position.set(0, 0.01, POS.southWall.z + 12);
-  root.add(southEdge);
-  // Another edge line further south
-  const southEdge2 = new THREE.Mesh(new THREE.BoxGeometry(200, 0.08, 0.4), edgeLineMat);
-  southEdge2.position.set(0, 0.01, 140);
-  root.add(southEdge2);
-
-  // Taxiway guide lights (small emissive spheres)
-  const guideLightMat = new THREE.MeshStandardMaterial({
-    color: 0xeedd44, emissive: 0xeedd44, emissiveIntensity: 0.8, roughness: 0.3
-  });
-  const guideLightGeo = new THREE.SphereGeometry(0.4, 8, 8);
-  for (let i = -6; i <= 6; i++) {
-    const light = new THREE.Mesh(guideLightGeo, guideLightMat);
-    light.position.set(i * 20, 0.4, 160);
-    root.add(light);
-  }
-
-  // ============================================================
-  //  B. BACKGROUND ELEMENTS
-  // ============================================================
-
-  // Distant control tower silhouette
-  const towerGroup = new THREE.Group();
-  towerGroup.position.set(-200, 0, 250);
-  const towerBase = new THREE.Mesh(
-    new THREE.CylinderGeometry(4, 5, 45, 8),
-    new THREE.MeshStandardMaterial({ color: 0x606870, roughness: 0.9 })
-  );
-  towerBase.position.y = 22.5;
-  towerGroup.add(towerBase);
-  const towerCab = new THREE.Mesh(
-    new THREE.BoxGeometry(14, 6, 14),
-    new THREE.MeshStandardMaterial({ color: 0x708090, roughness: 0.7 })
-  );
-  towerCab.position.y = 48;
-  towerGroup.add(towerCab);
-  // Tower glass windows
-  const towerGlass = new THREE.Mesh(
-    new THREE.BoxGeometry(14.5, 4, 14.5),
-    new THREE.MeshStandardMaterial({ color: 0x88aacc, roughness: 0.1, transparent: true, opacity: 0.6 })
-  );
-  towerGlass.position.y = 47;
-  towerGroup.add(towerGlass);
-  root.add(towerGroup);
-
-  // Distant hangars (simple boxes)
-  const hangarMat = new THREE.MeshStandardMaterial({ color: 0x707880, roughness: 0.9 });
-  const hangar1 = new THREE.Mesh(new THREE.BoxGeometry(60, 18, 35), hangarMat);
-  hangar1.position.set(180, 9, 220);
-  root.add(hangar1);
-  const hangar2 = new THREE.Mesh(new THREE.BoxGeometry(45, 15, 30), hangarMat);
-  hangar2.position.set(250, 7.5, 250);
-  root.add(hangar2);
-
-  // Perimeter fence (line of thin posts)
-  const fencePostGeo = new THREE.BoxGeometry(0.3, 3, 0.3);
-  const fencePostMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8 });
-  for (let i = -15; i <= 15; i++) {
-    const post = new THREE.Mesh(fencePostGeo, fencePostMat);
-    post.position.set(i * 20, 1.5, 280);
-    root.add(post);
-  }
-  // Fence wire (thin box connecting posts)
-  const fenceWire = new THREE.Mesh(
-    new THREE.BoxGeometry(600, 0.08, 0.08),
-    new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.7 })
-  );
-  fenceWire.position.set(0, 2.5, 280);
-  root.add(fenceWire);
-  const fenceWire2 = fenceWire.clone();
-  fenceWire2.position.y = 1.5;
-  root.add(fenceWire2);
+  // (Runway markings, taxiway lights, control tower, hangars and perimeter fence removed —
+  //  the scene is just the freeport buildings on the tarmac now.)
 
   // ============================================================
   //  C. STATIC LANDMARKS (building, rooms, turnstile)
@@ -121,37 +33,45 @@ export function buildWorld(scene) {
   //  D. FIRE / SMOKE EFFECTS
   // ============================================================
 
-  // ── Fire particles at crash site ──
-  const N_FIRE = 80;
+  // ── Fire at the crash site: additive rising-flame particles across several burning cores of
+  //    the wreck (not one blob). Motion runs in real time (flickers even when the clock is
+  //    paused); the timeline only gates its intensity (see fireAmt in update). ──
+  const N_FIRE = 180;
+  const fireCenter = new THREE.Vector3(POS.crashHole.x, 0, POS.crashHole.z);
+  const fireCores = [[0, 0], [15, 6], [-13, -5], [7, -13], [-9, 11], [22, -3], [-19, 3], [4, 16]];
   const fireGeo = new THREE.BufferGeometry();
   const firePositions = new Float32Array(N_FIRE * 3);
-  const fireDirs = [];
-  const fireCenter = new THREE.Vector3(POS.crashHole.x, 8, POS.crashHole.z);
-
+  const fireColors = new Float32Array(N_FIRE * 3);
+  const fireP = [];
   for (let i = 0; i < N_FIRE; i++) {
-    fireDirs.push(new THREE.Vector3(
-      (Math.random() - 0.5) * 20,
-      Math.random() * 22 + 5,
-      (Math.random() - 0.5) * 16
-    ));
-    firePositions[i * 3]     = fireCenter.x;
-    firePositions[i * 3 + 1] = 8;
-    firePositions[i * 3 + 2] = fireCenter.z;
+    const c = fireCores[i % fireCores.length];
+    const a = Math.random() * Math.PI * 2, rr = Math.random() * 6;
+    const p = {
+      x: fireCenter.x + c[0] + Math.cos(a) * rr,
+      z: fireCenter.z + c[1] + Math.sin(a) * rr,
+      h: 13 + Math.random() * 17,            // flame height
+      speed: 0.7 + Math.random() * 1.1,      // rise loops per real second
+      off: Math.random(),
+      sway: 1.4 + Math.random() * 2.6,
+    };
+    fireP.push(p);
+    firePositions[i * 3] = p.x; firePositions[i * 3 + 2] = p.z;
   }
   fireGeo.setAttribute('position', new THREE.BufferAttribute(firePositions, 3));
+  fireGeo.setAttribute('color', new THREE.BufferAttribute(fireColors, 3));
   const fireMat = new THREE.PointsMaterial({
-    color: COL.fire, size: 2.8, transparent: true, opacity: 0.8
+    size: 4.2, vertexColors: true, transparent: true, opacity: 0.95,
+    depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
   });
   const fire = new THREE.Points(fireGeo, fireMat);
   root.add(fire);
-  fire.userData = { dirs: fireDirs, center: fireCenter };
 
-  const fireLight = new THREE.PointLight(COL.fireGlow, 0, 140);
-  fireLight.position.copy(fireCenter).setY(14);
+  const fireLight = new THREE.PointLight(COL.fireGlow, 0, 150);
+  fireLight.position.set(fireCenter.x, 14, fireCenter.z);
   root.add(fireLight);
 
   // Fire glow on tarmac surface (projected light)
-  const tarmacFireLight = new THREE.PointLight(0xff6622, 0, 60);
+  const tarmacFireLight = new THREE.PointLight(0xff6622, 0, 70);
   tarmacFireLight.position.set(POS.plane.x, 3, POS.plane.z);
   root.add(tarmacFireLight);
 
@@ -194,7 +114,8 @@ export function buildWorld(scene) {
   }
   emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPositions, 3));
   const emberMat = new THREE.PointsMaterial({
-    color: COL.ember, size: 1.2, transparent: true, opacity: 0
+    color: COL.ember, size: 1.0, transparent: true, opacity: 0,
+    depthWrite: false, blending: THREE.AdditiveBlending,
   });
   const embers = new THREE.Points(emberGeo, emberMat);
   root.add(embers);
@@ -256,12 +177,13 @@ export function buildWorld(scene) {
   //  G. UPDATE(t)
   // ============================================================
   function update(t) {
-    // 747 flies in from afar and arrives at its crash spot at t=0, then explodes.
+    // 747 skids IN ALONG THE GROUND from the north and slams to rest at t=0 (a ground crash,
+    // not a descent from the sky — stays at y=0 the whole way in).
     const fly = clamp01((t + 0.08) / 0.08);   // 0 at t=-0.08 → 1 at t=0
     landmarks.planeGroup.position.set(
-      POS.plane.x + (1 - fly) * 30,
-      (1 - fly) * 80,
-      POS.plane.z - (1 - fly) * 300,
+      POS.plane.x + (1 - fly) * 16,
+      0,
+      POS.plane.z - (1 - fly) * 180,
     );
     // Turnstile: before a figure emerges the outward opening WINDS 180° to the far side
     // (blue CCW / red CW), then UNWINDS back to front (the way it came) AS the figure
@@ -278,10 +200,10 @@ export function buildWorld(scene) {
       landmarks.turnstile.red.rotation.y = -ang;    // CW out, CCW back
     }
 
-    // Bullet holes on the proving-window glass: 4 appear inner→outer over 0:22–0:31, then
-    // repair (un-shoot) inner→outer over 1:06–1:15. Each pops/shrinks over a short ramp.
+    // Bullet holes on the proving-window glass: synced to the plane impact — the 4 pop in
+    // inner→outer right as the 747 hits (t≈0), then repair (un-shoot) inner→outer over 1:06–1:15.
     if (landmarks.bulletHoles) {
-      const APP = [22, 25, 28, 31], REP = [66, 69, 72, 75], RAMP = 0.6;   // seconds
+      const APP = [0, 1, 2, 3], REP = [66, 69, 72, 75], RAMP = 0.6;   // seconds
       landmarks.bulletHoles.forEach((h, i) => {
         const a = APP[i] / 180, r = REP[i] / 180, ramp = RAMP / 180;
         let s;
@@ -295,19 +217,27 @@ export function buildWorld(scene) {
       });
     }
 
-    // Fire grows with time
-    const fireAmt = clamp01(t / 0.15);
-    const fArr = fire.geometry.attributes.position.array;
-    fireDirs.forEach((d, i) => {
-      const anim = (Math.sin(t * 8 + i * 0.7) * 0.3 + 0.7) * fireAmt;
-      fArr[i * 3]     = fire.userData.center.x + d.x * anim;
-      fArr[i * 3 + 1] = fire.userData.center.y + d.y * anim;
-      fArr[i * 3 + 2] = fire.userData.center.z + d.z * anim;
-    });
+    // Fire — real-time rising flames; the timeline only gates intensity (grows in after impact).
+    const fireAmt = clamp01(t / 0.1);
+    const ft = performance.now() * 0.001;
+    const fpos = fire.geometry.attributes.position.array;
+    const fcol = fire.geometry.attributes.color.array;
+    for (let i = 0; i < N_FIRE; i++) {
+      const p = fireP[i];
+      const ph = (ft * p.speed + p.off) % 1;                 // 0→1 rise loop
+      fpos[i * 3]     = p.x + Math.sin(ft * 3 + i) * p.sway * ph;
+      fpos[i * 3 + 1] = ph * p.h * (0.45 + 0.55 * fireAmt);
+      fpos[i * 3 + 2] = p.z + Math.cos(ft * 2.6 + i * 1.3) * p.sway * ph;
+      // hot yellow at the base → orange → red, fading out near the top (additive → fade = clear)
+      const k = Math.max(0, (1 - ph) * fireAmt * (0.7 + 0.3 * Math.sin(ft * 13 + i * 3)));
+      fcol[i * 3]     = k;                          // R
+      fcol[i * 3 + 1] = k * (0.6 - 0.5 * ph);       // G (yellow at base)
+      fcol[i * 3 + 2] = k * 0.1 * (1 - ph);         // B (faint, base only)
+    }
     fire.geometry.attributes.position.needsUpdate = true;
-    fireMat.opacity = 0.4 + 0.5 * fireAmt;
-    fireLight.intensity = fireAmt * 3.0;
-    tarmacFireLight.intensity = fireAmt * 1.5;
+    fire.geometry.attributes.color.needsUpdate = true;
+    fireLight.intensity = fireAmt * (3.0 + 0.6 * Math.sin(ft * 11));
+    tarmacFireLight.intensity = fireAmt * 1.6;
 
     // Smoke rises
     const smokeAmt = clamp01(t / 0.2);
