@@ -206,7 +206,7 @@ export const HEX = {
   innerDoors: { 3: [{ at: 0.30, w: 6 }, { at: 0.70, w: 6 }] },        // bottom (user 6), flank partition
   // Middle doors on the NE/NW edges (code 1/5 = user 3/2), down near the SE/SW (4/5) ends.
   // Code edge 1 (TR→RE): at→1 ≈ near RE; code edge 5 (WE→TL): at→0 ≈ near WE.
-  midDoors:   { 1: [{ at: 0.82, w: 9 }], 5: [{ at: 0.18, w: 9 }] },   // right (east) + left (west)
+  midDoors:   { 1: [{ at: 0.82, w: 9 }], 4: [{ at: 0.18, w: 9 }] },   // right (east, edge1) + left (west, pentagon edge4)
   // outer: NORTH rolling doors (edge 0, set by MERGE) + a RIGHT entry door on the NE edge
   // (code 1, near RE — radially aligned with the middle right door) where TP & Neil appear.
   outerDoors: { 0: [{ at: 0.26, w: 14 }, { at: 0.74, w: 14 }], 1: [{ at: 0.82, w: 9 }] },
@@ -235,6 +235,15 @@ RINGS.outer[2] = [ 96, 34];   // RE (east point)
 RINGS.outer[3] = [ 46, 70];   // BR ┐ short SE / SW edges (user 5 / 4)
 RINGS.outer[4] = [-46, 70];   // BL
 RINGS.outer[5] = [-96, 34];   // WE (west point)
+
+// MIDDLE ring is a PENTAGON (2026-06-07): base = the top edge sitting on the outer top wall
+// (user edge 1); it tapers to a single APEX just south of the inner room's two doors. Collapse
+// the offset hexagon's bottom edge (BR,BL) into that apex, keeping the east/west points (RE,WE)
+// as the side vertices → corners [TL, TR, RE, apex, WE].
+{
+  const apexZ = HEX.inner[3][1] + 8;     // inner bottom (doors-midpoint z) + a bit outward (south)
+  RINGS.mid.splice(3, 2, [0, apexZ]);
+}
 
 // MERGE: lift the middle ring's top corners up onto the outer ring's top edge, so the
 // middle's NE/NW edges (user 2/3) connect to the outer ring's top edge (user 1). The
@@ -266,7 +275,7 @@ export const DOORS = {
   connTop: doorAt(RINGS.outer, 0, HEX._connAt),             // back/junction door (red Neil 2 exits)
   outR:    doorAt(RINGS.outer, 1, HEX.outerDoors[1][0].at),  // outer RIGHT entry door (TP & Neil appear)
   midR:    doorAt(RINGS.mid,   1, HEX.midDoors[1][0].at),    // middle RIGHT (east) door — main entry
-  midL:    doorAt(RINGS.mid,   5, HEX.midDoors[5][0].at),    // middle LEFT (west) door
+  midL:    doorAt(RINGS.mid,   4, HEX.midDoors[4][0].at),    // middle LEFT (west) door (pentagon edge 4)
   innE:    doorAt(RINGS.inner, 3, HEX.innerDoors[3][0].at),  // inner bottom, east (red)
   innW:    doorAt(RINGS.inner, 3, HEX.innerDoors[3][1].at),  // inner bottom, west (blue)
   redCyl:  { x:  HEX.cylX, z: HEX.cylZ, nx: 0, nz: 0 },

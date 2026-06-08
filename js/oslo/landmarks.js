@@ -216,7 +216,7 @@ export function buildLandmarks(root) {
   slideDoor(innerC, 3, HEX.innerDoors[3][0], innerGroup, 'door_inner_E');
   slideDoor(innerC, 3, HEX.innerDoors[3][1], innerGroup, 'door_inner_W');
   slideDoor(midC, 1, HEX.midDoors[1][0], midGroup, 'door_mid_R');
-  slideDoor(midC, 5, HEX.midDoors[5][0], midGroup, 'door_mid_L');
+  slideDoor(midC, 4, HEX.midDoors[4][0], midGroup, 'door_mid_L');   // pentagon: west door on edge 4
   slideDoor(outerC, 0, HEX.outerDoors[0][2], outerGroup, 'door_conn');
   slideDoor(outerC, 1, HEX.outerDoors[1][0], outerGroup, 'door_outR');
 
