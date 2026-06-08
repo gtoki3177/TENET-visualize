@@ -164,6 +164,8 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
   .clock-red .val, .clock-red .lab { color: var(--red); }
   .clock-blue .val, .clock-blue .lab { color: var(--blue); }
   .clock-blue { margin-left: auto; flex-direction: row-reverse; }
+  .clock-dbg .val { font-size: 11px; opacity: 0.45; }
+  .clock-dbg .lab { font-size: 9px; opacity: 0.45; }
   .event { flex: 1; text-align: center; }
   .event .ek { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--ink3); }
@@ -198,7 +200,7 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
     box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
   .subj-row.inv #subj-fill { background: var(--blue); }
   .subj-row.inv #subj-handle { border-color: var(--blue); }
-  .subj-dir { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink3); white-space: nowrap; min-width: 150px; text-align: right; }
+  .subj-dir { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink3); white-space: nowrap; width: 210px; flex: none; text-align: right; }
   .subj-row.inv .subj-dir { color: var(--blue); }
 
   .tl-track-wrap { position: relative; height: 30px; display: flex; align-items: center;
@@ -353,6 +355,7 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
         <div class="clock clock-red"><span class="lab">FWD ↓</span><span class="val" id="clock-red">0:00</span></div>
         <div class="event"><div class="ek">Key Event</div><div id="event-label">747 crashes into the freeport</div></div>
         <div class="clock clock-blue"><span class="lab">INV ↑</span><span class="val" id="clock-blue">8:00</span></div>
+        <div class="clock clock-dbg"><span class="lab">t=</span><span class="val" id="clock-t">0.000</span></div>
       </div>
       <div class="tl-track-wrap">
         <div id="track"><div id="track-fill"></div><div id="handle"></div></div>

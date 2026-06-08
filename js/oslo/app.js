@@ -142,6 +142,7 @@ const fmt = (sec) => {
 
 const elRed = document.getElementById('clock-red');
 const elBlue = document.getElementById('clock-blue');
+const elClockT = document.getElementById('clock-t');
 const elHandle = document.getElementById('handle');
 const elFill = document.getElementById('track-fill');
 const elEvent = document.getElementById('event-label');
@@ -158,6 +159,7 @@ function setT(v) {
   const tc = Math.max(0, Math.min(1, t));
   elRed.textContent = fmt(tc * 180);      // 3-minute scene (0:00 → 3:00)
   elBlue.textContent = fmt((1 - tc) * 180);
+  elClockT.textContent = t.toFixed(3);
   const pct = (t - T_MIN) / (T_MAX - T_MIN) * 100;
   elHandle.style.left = `${pct}%`;
   elFill.style.width = `${pct}%`;
@@ -260,9 +262,13 @@ const playBtn = document.getElementById('play');
 function setPlay(p) { playing = p; playBtn.dataset.playing = p ? '1' : '0'; playBtn.textContent = p ? '❚❚' : '▶'; }
 function pause() { setPlay(false); }
 function togglePlay() {
-  if (subjKey) { if (subjT >= 1) setSubjT(0, true); }
-  else if (playDir > 0 && t >= T_MAX) setT(T_MIN);
-  else if (playDir < 0 && t <= T_MIN) setT(T_MAX);
+  if (subjKey) {
+    if (playDir > 0 && subjT >= 1) setSubjT(0, true);
+    else if (playDir < 0 && subjT <= 0) setSubjT(1, true);
+  } else {
+    if (playDir > 0 && t >= T_MAX) setT(T_MIN);
+    else if (playDir < 0 && t <= T_MIN) setT(T_MAX);
+  }
   setPlay(!playing);
 }
 playBtn.addEventListener('click', togglePlay);
@@ -285,8 +291,7 @@ function setPlayDir(d) {
 }
 dirBtn.addEventListener('click', () => { setPlayDir(playDir > 0 ? -1 : 1); });
 function syncDirAvailability() {
-  dirBtn.disabled = !!subjKey;
-  if (subjKey && playDir < 0) setPlayDir(1);
+  dirBtn.disabled = false;
 }
 
 // ---------- View / Location panels ----------
@@ -306,7 +311,7 @@ function _setViewUI(key) {
 function selectView(key) {
   _setViewUI(key);
   if (key === 'god') { views.goGod(godFraming); exitSubjective(); }
-  else { views.follow(key); enterSubjective(key); }
+  else { views.followSmooth(key); enterSubjective(key); }
   syncDirAvailability();
 }
 function goLocation(key) {
@@ -423,7 +428,7 @@ const subjFill = document.getElementById('subj-fill');
 const subjHandle = document.getElementById('subj-handle');
 const subjLabel = document.getElementById('subj-label');
 const subjDir = document.getElementById('subj-dir');
-let subjKey = null, subjT = 0, _subjPhase = null;
+let subjKey = null, subjT = 0, _subjPhase = null, _pendingSnap = null;
 
 function paintSubj() {
   subjHandle.style.left = `${subjT * 100}%`;
@@ -433,41 +438,39 @@ function paintSubj() {
   subjRow.classList.toggle('inv', inv);
   subjDir.textContent = inv ? '◀ inverted · drag right rewinds' : '▶ forward';
 }
-// noHyst=true skips hysteresis (used during playback — each frame only advances ~0.0003
-// which is far below HYST, so without this flag the phase would never switch during play).
-function setSubjT(v, noHyst = false) {
+const SUBJ_HYST = 0.02;   // after a seam switch, ignore re-crossings until subjT leaves this zone
+let _phaseLock = null;    // subjT recorded at the last phase switch (debounce anchor)
+function setSubjT(v, _unused = false) {
   const prevPhase = _subjPhase;
   subjT = clamp01(v);
 
-  // Phase selection — with hysteresis for manual scrubbing (prevents mouse-jitter oscillation
-  // at the boundary), immediate for playback (noHyst).
-  const HYST = 0.01;
-  if (SUBJ[subjKey] && SUBJ[subjKey].phases) {
-    const phases = SUBJ[subjKey].phases;
-    const naive = phases.find(p => subjT <= p.b) || phases[phases.length - 1];
-    if (!prevPhase || prevPhase === naive || noHyst) {
-      _subjPhase = naive;
-    } else {
-      const prevIdx = phases.indexOf(prevPhase);
-      const naiveIdx = phases.indexOf(naive);
-      const overshoot = naiveIdx > prevIdx ? subjT - prevPhase.b : prevPhase.b - subjT;
-      _subjPhase = overshoot > HYST ? naive : prevPhase;
+  const cfg = SUBJ[subjKey];
+  if (cfg && cfg.phases) {
+    const phases = cfg.phases;
+    const natural = phases.find(p => subjT <= p.b) || phases[phases.length - 1];
+    // Switch AT the seam — snappy in both drag directions. A debounce LOCK (not a band) then
+    // suppresses jitter re-crossings until subjT travels clear of the seam zone, so red/blue
+    // can't strobe. Travelling well past the seam re-arms it, so the return cut is snappy too.
+    if (_phaseLock !== null && Math.abs(subjT - _phaseLock) > SUBJ_HYST) _phaseLock = null;
+    if (!_subjPhase) {
+      _subjPhase = natural;          // initialise; first real crossing stays snappy (no lock yet)
+    } else if (natural !== _subjPhase && _phaseLock === null) {
+      _subjPhase = natural;
+      _phaseLock = subjT;
     }
   }
 
   paintSubj();
 
-  // Map subjT → t using hysteresis-corrected phase; clamp frac to [0,1] so we
-  // never extrapolate past the boundary (would flip direction during dead zone).
-  if (_subjPhase) {
-    const p = _subjPhase;
-    const frac = clamp01(p.b === p.a ? 0 : (subjT - p.a) / (p.b - p.a));
-    setT(p.ta + frac * (p.tb - p.ta));
-    setInvertedTime(p.inv);
-    if (_subjPhase !== prevPhase) views.followObject(entities.followables[p.self]);
+  // t is ALWAYS the continuous natural mapping. It folds cleanly at the seam (bottoms at the
+  // shared frame, never a dead zone, never sends both selves out of view) regardless of which
+  // phase the debounce is currently holding for display.
+  setT(subjToGlobal(subjKey, subjT));
+  if (cfg && cfg.phases) {
+    setInvertedTime(_subjPhase ? _subjPhase.inv : false);
+    if (_subjPhase !== prevPhase) _pendingSnap = { key: _subjPhase.self, preserve: true };
   } else {
-    setT(subjToGlobal(subjKey, subjT));
-    setInvertedTime(SUBJ[subjKey].inv());
+    setInvertedTime(cfg.inv());
   }
 }
 function enterSubjective(key) {
@@ -477,20 +480,28 @@ function enterSubjective(key) {
   subjLabel.textContent = `SUBJECTIVE · ${SUBJ[key].name}`;
   subjT = globalToSubj(key, t);
   _subjPhase = subjPhaseAt(key, subjT);
-  if (_subjPhase) views.follow(_subjPhase.self);
+  _phaseLock = null;
+  if (_subjPhase) _pendingSnap = { key: _subjPhase.self, preserve: false };
   paintSubj();
 }
 function exitSubjective() {
   subjKey = null;
+  _pendingSnap = null;
+  _phaseLock = null;
   subjRow.classList.remove('on', 'inv');
   setInvertedTime(false);
 }
-function subjToT(clientX) { const r = subjTrack.getBoundingClientRect(); return (clientX - r.left) / r.width; }
+// Rect captured at drag-start: the subj-dir label changes width when the phase flips (INV↔FWD),
+// which would resize this flex track mid-drag and shift the cursor→fraction mapping. Pinning the
+// rect for the whole drag keeps the handle glued to the cursor across the seam.
+let _subjRect = null;
+function subjToT(clientX) { const r = _subjRect || subjTrack.getBoundingClientRect(); return (clientX - r.left) / r.width; }
 function subjMove(e) { setSubjT(subjToT(e.clientX)); }
-function subjUp() { window.removeEventListener('pointermove', subjMove); window.removeEventListener('pointerup', subjUp); }
+function subjUp() { _subjRect = null; window.removeEventListener('pointermove', subjMove); window.removeEventListener('pointerup', subjUp); }
 subjTrack.addEventListener('pointerdown', (e) => {
   if (!subjKey) return;
   e.preventDefault();
+  _subjRect = subjTrack.getBoundingClientRect();
   pause(); setSubjT(subjToT(e.clientX));
   window.addEventListener('pointermove', subjMove);
   window.addEventListener('pointerup', subjUp);
@@ -567,9 +578,10 @@ function animate(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (playing) {
     if (subjKey) {
-      subjT = Math.min(1, subjT + dt / DURATION);
+      subjT = Math.min(1, Math.max(0, subjT + playDir * dt / DURATION));
       setSubjT(subjT, true);
-      if (subjT >= 1) setPlay(false);
+      if (playDir > 0 && subjT >= 1) setPlay(false);
+      if (playDir < 0 && subjT <= 0) setPlay(false);
     } else {
       setT(t + playDir * dt / DURATION);
       if ((playDir > 0 && t >= T_MAX) || (playDir < 0 && t <= T_MIN)) setPlay(false);
@@ -579,9 +591,10 @@ function animate(now) {
   syncCharTags();
   if (editor.active && playing && editor.selected) editor.focusSelected();
   world.update(t);
+  if (_pendingSnap) { views.followSmooth(_pendingSnap.key, _pendingSnap.preserve); _pendingSnap = null; }
   views.update(dt);
   controls.update();
-  if (editor) editor.tick();
+  if (editor) editor.tick(dt);
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
 }

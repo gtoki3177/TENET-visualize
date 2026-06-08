@@ -381,7 +381,8 @@ export function buildLandmarks(root) {
 
   const vanGroup = new THREE.Group();
   tag(vanGroup, 'ambulance_van');
-  vanGroup.position.set(-35, 0, POS.plane.z + 15);
+  vanGroup.position.set(112.051, 0, -151.107);   // baked from editor (2026-06-08)
+  vanGroup.rotation.set(-3.142, 0.046, -3.142);
   root.add(vanGroup);
   const vanMat = track(new THREE.MeshStandardMaterial({ color: 0x76a328, roughness: 0.5 }), surfaceMats);
   const vanBody = new THREE.Mesh(new THREE.BoxGeometry(12, 10, 24), vanMat);
@@ -394,7 +395,7 @@ export function buildLandmarks(root) {
   // ============================================================
   const containerGroup = new THREE.Group();
   tag(containerGroup, 'shipping_container');
-  containerGroup.position.set(-60, 0, POS.plane.z + 10);
+  containerGroup.position.set(83.524, 0, -225.636);   // baked from editor (2026-06-08)
   root.add(containerGroup);
   const contMat = track(new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.7, metalness: 0.3 }), surfaceMats);
   const contBody = new THREE.Mesh(new THREE.BoxGeometry(16, 12, 36), contMat);

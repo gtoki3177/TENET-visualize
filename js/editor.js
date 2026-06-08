@@ -9,6 +9,7 @@ const SLOTS_BASE = 'tenet_scene_slots';
 let STORE_KEY = STORE_BASE;
 let SLOTS_KEY = SLOTS_BASE;
 const round = (v) => Math.round(v * 1000) / 1000;
+const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const TPARAMS = [
   { cat: 'Hill',  k: 'hillR', min: 60, max: 220, step: 5, label: 'radius' },
   { cat: 'Hill',  k: 'hillH', min: 20, max: 90, step: 2, label: 'height' },
@@ -45,6 +46,7 @@ export class Editor {
     this.store = load();
     this.undoStack = [];
     this._wp = new THREE.Vector3();
+    this._recenter = null;          // active smooth-recenter tween (selection change)
     this._suppressUndo = false;                 // true mid-scrub (one undo per drag, not per step)
     this._hovered = null; this.hoverHelper = null;
     this._hover = (e) => this.hover(e);
@@ -199,8 +201,17 @@ export class Editor {
   }
 
   // refresh per-frame readout while editing (clock t / keyframe-here may change on scrub)
-  tick() {
+  tick(dt = 0.016) {
     if (!this.active) return;
+    if (this._recenter) {
+      const rc = this._recenter;
+      rc.t = Math.min(1, rc.t + dt / rc.dur);
+      const k = easeInOut(rc.t);
+      this.camera.position.lerpVectors(rc.fromP, rc.toP, k);
+      this.controls.target.lerpVectors(rc.fromT, rc.toT, k);
+      this.controls.update();
+      if (rc.t >= 1) this._recenter = null;
+    }
     if (this.isActor(this.selected)) this.refreshActorInfo();
     if (this.hoverHelper) this.hoverHelper.update();
   }
@@ -222,15 +233,27 @@ export class Editor {
   // Re-centre the orbit on the selected object's current world position.
   focusSelected() {
     const o = this.selected; if (!o) return;
+    this._recenter = null;          // instant focus cancels any in-flight smooth recenter
     o.getWorldPosition(this._wp);
     this.camera.position.add(this._wp.clone().sub(this.controls.target));
     this.controls.target.copy(this._wp);
     this.controls.update();
   }
+  // Smooth version of focusSelected — eases the orbit centre onto the selection's world
+  // position while preserving the camera-to-target offset (same angle/distance, just re-centred).
+  focusSelectedSmooth(dur = 0.35) {
+    const o = this.selected; if (!o) { this._recenter = null; return; }
+    o.getWorldPosition(this._wp);
+    const fromT = this.controls.target.clone();
+    const toT = this._wp.clone();
+    const fromP = this.camera.position.clone();
+    const toP = fromP.clone().add(toT.clone().sub(fromT));
+    this._recenter = { fromT, toT, fromP, toP, t: 0, dur };
+  }
   select(o, recenter = true) {
     this.setHover(null);
     this.selected = o; this.tc.attach(o); this.tc.visible = true;
-    if (recenter) this.focusSelected();
+    if (recenter) this.focusSelectedSmooth();
     this.updatePanel(); this.notifySelection();
   }
   deselect() { this.selected = null; this.tc.detach(); this.tc.visible = false; this.updatePanel(); this.notifySelection(); }
