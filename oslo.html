@@ -4,11 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Oslo Freeport · The Turnstile Encounter</title>
+<link rel="icon" href="data:,">
 <script>/* opened directly (not in the index shell)? go to the shell so the scene switcher shows */
 if (window.self === window.top) location.replace('./?scene=oslo');</script>
 <meta name="description" content="Interactive 3D visualization of the Oslo Freeport scene from TENET — the Protagonist fights his inverted self at the Rotas turnstile." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
@@ -166,10 +169,51 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
   .clock-blue { margin-left: auto; flex-direction: row-reverse; }
   .clock-dbg .val { font-size: 11px; opacity: 0.45; }
   .clock-dbg .lab { font-size: 9px; opacity: 0.45; }
-  .event { flex: 1; text-align: center; }
+  .event { flex: 1; text-align: center; cursor: default; }
   .event .ek { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--ink3); }
-  .event #event-label { font-size: 13px; color: var(--ink); margin-top: 1px; }
+  .event #event-label { font-size: 13px; color: var(--ink); margin-top: 1px;
+    border-bottom: 1px dotted transparent; transition: border-color .15s; }
+  .event:hover #event-label { border-bottom-color: var(--ink3); }
+
+  /* Clip preview overlay — shown on hover of the event title.
+     Positioned above the timeline so the title stays visible below. */
+  .clip-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 220px; z-index: 30;
+    pointer-events: none; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 10px; opacity: 0; transition: opacity 80ms; }
+  .clip-overlay.on { opacity: 1; }
+  .clip-overlay video { width: 80vw; max-width: 1200px; max-height: calc(100vh - 280px);
+    aspect-ratio: 16/9; border-radius: 6px; box-shadow: 0 12px 48px rgba(0,0,0,0.45);
+    background: #000; object-fit: contain; }
+  .clip-overlay .clip-cap { font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    letter-spacing: 0.07em; color: rgba(255,255,255,0.85); background: rgba(0,0,0,0.52);
+    padding: 4px 12px; border-radius: 20px; max-width: 60vw; text-align: center; }
+
+  /* In edit mode, the title becomes clickable to set its clip path */
+  body.editing .event { cursor: pointer; }
+  body.editing .event #event-label { border-bottom: 1px dashed #b5651d; color: #b5651d; }
+  body.editing .event:hover #event-label { background: rgba(181,101,29,0.08); }
+
+  /* Clip-path editor popover */
+  .clip-edit { position: fixed; left: 50%; bottom: 200px; transform: translateX(-50%);
+    z-index: 40; min-width: 420px; max-width: 80vw;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    backdrop-filter: blur(10px); padding: 12px 14px; display: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.18); }
+  .clip-edit.on { display: block; }
+  .clip-edit .ce-head { font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.16em; color: var(--ink3); text-transform: uppercase; margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center; }
+  .clip-edit .ce-x { border: 0; background: transparent; color: var(--ink3); cursor: pointer; font-size: 14px; }
+  .clip-edit .ce-title { font-size: 12px; color: var(--ink2); margin-bottom: 8px; line-height: 1.4; }
+  .clip-edit .ce-row { display: flex; gap: 6px; }
+  .clip-edit input { flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
+  .clip-edit button { font: inherit; font-size: 11px; padding: 6px 10px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink2); }
+  .clip-edit .ce-save { background: #b5651d; color: #fff; border-color: #b5651d; }
+  .clip-edit .ce-hint { font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    color: var(--ink3); margin-top: 6px; }
   .play { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line);
     background: #fff; color: var(--ink); cursor: pointer; font-size: 13px; flex: 0 0 auto; }
   .play[data-playing="1"] { background: var(--ink); color: #fff; border-color: var(--ink); }
@@ -395,11 +439,29 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
     </div>
   </div>
 
+  <!-- Clip preview overlay (shown on event-title hover) -->
+  <div class="clip-overlay" id="clip-overlay">
+    <video id="clip-video" muted loop playsinline preload="none"></video>
+    <div class="clip-cap" id="clip-cap"></div>
+  </div>
+
+  <!-- Clip-path editor (opened in edit mode by clicking the event title) -->
+  <div class="clip-edit" id="clip-edit">
+    <div class="ce-head"><span>Clip file</span><button class="ce-x" id="ce-x">×</button></div>
+    <div class="ce-title" id="ce-title"></div>
+    <div class="ce-row">
+      <input type="text" id="ce-input" placeholder="clips/oslo/01.mp4" />
+      <button class="ce-save" id="ce-save">Save</button>
+      <button id="ce-reset" title="Restore default path">Reset</button>
+    </div>
+    <div class="ce-hint">Enter to save · Esc to close · empty path disables clip</div>
+  </div>
+
   <script type="importmap">
   {
     "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
     }
   }
   </script>

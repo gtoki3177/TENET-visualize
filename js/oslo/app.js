@@ -15,13 +15,13 @@ const T_MAX =  1.05;
 
 // 7 key beats
 const EVENTS = [
-  { t: 0.00, title: 'A hijacked 747 explodes outside the freeport — the distraction', loc: 'crash' },
-  { t: 0.15, title: 'Protagonist & Neil slip in through the east rolling door', loc: 'hallway' },
-  { t: 0.30, title: 'They spiral in to the vault — the Rotas turnstile is running', loc: 'turnstile' },
-  { t: 0.45, title: 'A masked figure bursts backward from the turnstile — the Protagonist doesn\'t know it\'s himself', loc: 'turnstile' },
-  { t: 0.60, title: 'The fight at the turnstile — forward grapples inverted; bullets un-fire', loc: 'turnstile' },
-  { t: 0.80, title: 'The inverted self backs into the blue turnstile and inverts away', loc: 'turnstile' },
-  { t: 1.00, title: 'Neil pulls the Protagonist out — the freeport burns behind them', loc: 'crash' },
+  { t: 0.00, title: 'A hijacked 747 explodes outside the freeport — the distraction', loc: 'crash', clip: 'clips/oslo/01.mp4' },
+  { t: 0.15, title: 'Protagonist & Neil slip in through the east rolling door', loc: 'hallway', clip: 'clips/oslo/02.mp4' },
+  { t: 0.30, title: 'They spiral in to the vault — the Rotas turnstile is running', loc: 'turnstile', clip: 'clips/oslo/03.mp4' },
+  { t: 0.45, title: 'A masked figure bursts backward from the turnstile — the Protagonist doesn\'t know it\'s himself', loc: 'turnstile', clip: 'clips/oslo/04.mp4' },
+  { t: 0.60, title: 'The fight at the turnstile — forward grapples inverted; bullets un-fire', loc: 'turnstile', clip: 'clips/oslo/05.mp4' },
+  { t: 0.80, title: 'The inverted self backs into the blue turnstile and inverts away', loc: 'turnstile', clip: 'clips/oslo/06.mp4' },
+  { t: 1.00, title: 'Neil pulls the Protagonist out — the freeport burns behind them', loc: 'crash', clip: 'clips/oslo/07.mp4' },
 ];
 
 // ---------- Scene ----------
@@ -153,6 +153,102 @@ function currentEvent() {
   for (const ev of EVENTS) if (t >= ev.t - 0.001) e = ev;
   return e;
 }
+
+// ---------- Clip preview (hover the event title to see the movie clip) ----------
+const clipOverlay = document.getElementById('clip-overlay');
+const clipVideo   = document.getElementById('clip-video');
+const clipCap     = document.getElementById('clip-cap');
+let clipHideTimer = null;
+
+// Per-event clip path overrides — editable in edit mode, persisted to localStorage.
+// Keyed by t.toFixed(3) so editing survives event reordering as long as t-values stay.
+const CLIP_OVERRIDES_KEY = 'tenet_oslo_clip_overrides';
+function loadClipOverrides() {
+  try { return JSON.parse(localStorage.getItem(CLIP_OVERRIDES_KEY)) || {}; } catch (e) { return {}; }
+}
+function saveClipOverrides(map) {
+  try { localStorage.setItem(CLIP_OVERRIDES_KEY, JSON.stringify(map)); } catch (e) {}
+}
+const clipOverrides = loadClipOverrides();
+const DEFAULT_CLIPS = EVENTS.map(e => e.clip);   // remember originals for Reset
+function applyClipOverrides() {
+  EVENTS.forEach((ev, i) => {
+    const key = ev.t.toFixed(3);
+    if (key in clipOverrides) ev.clip = clipOverrides[key] || null;
+    else ev.clip = DEFAULT_CLIPS[i];
+  });
+}
+applyClipOverrides();
+
+function showClip(ev) {
+  if (!ev.clip) return;
+  clearTimeout(clipHideTimer);
+  const abs = new URL(ev.clip, location.href).href;
+  if (clipVideo.src !== abs) { clipVideo.src = ev.clip; clipVideo.currentTime = 0; }
+  clipVideo.play().catch(() => {});
+  clipCap.textContent = ev.title;
+  clipOverlay.classList.add('on');
+}
+function hideClip() {
+  clipHideTimer = setTimeout(() => { clipOverlay.classList.remove('on'); clipVideo.pause(); }, 80);
+}
+const eventBox = elEvent.closest('.event');
+eventBox.addEventListener('mouseenter', () => showClip(currentEvent()));
+eventBox.addEventListener('mouseleave', hideClip);
+
+// ---------- Clip-path editor (open by clicking the event title while in edit mode) ----------
+const editBtnEl  = document.getElementById('edit-btn');
+const ceBox      = document.getElementById('clip-edit');
+const ceTitle    = document.getElementById('ce-title');
+const ceInput    = document.getElementById('ce-input');
+const ceSave     = document.getElementById('ce-save');
+const ceReset    = document.getElementById('ce-reset');
+const ceX        = document.getElementById('ce-x');
+let ceEditingEv  = null;
+
+function isEditMode() { return editBtnEl && editBtnEl.classList.contains('active'); }
+function openClipEditor(ev) {
+  ceEditingEv = ev;
+  ceTitle.textContent = ev.title;
+  ceInput.value = ev.clip || '';
+  ceBox.classList.add('on');
+  setTimeout(() => { ceInput.focus(); ceInput.select(); }, 0);
+}
+function closeClipEditor() {
+  ceBox.classList.remove('on');
+  ceEditingEv = null;
+}
+function commitClipEditor() {
+  if (!ceEditingEv) return;
+  const key = ceEditingEv.t.toFixed(3);
+  const path = ceInput.value.trim();
+  clipOverrides[key] = path;            // empty string ⇒ disables clip for this event
+  saveClipOverrides(clipOverrides);
+  applyClipOverrides();
+  closeClipEditor();
+}
+function resetClipEditor() {
+  if (!ceEditingEv) return;
+  const key = ceEditingEv.t.toFixed(3);
+  delete clipOverrides[key];
+  saveClipOverrides(clipOverrides);
+  applyClipOverrides();
+  ceInput.value = ceEditingEv.clip || '';
+}
+// Click on the title (in edit mode) opens the editor
+eventBox.addEventListener('click', () => { if (isEditMode()) openClipEditor(currentEvent()); });
+// Reflect edit-mode state in <body> so CSS shows the orange clickable hint
+function syncEditClass() { document.body.classList.toggle('editing', isEditMode()); }
+editBtnEl && editBtnEl.addEventListener('click', () => setTimeout(syncEditClass, 0));
+syncEditClass();
+// Editor buttons
+ceSave.addEventListener('click', commitClipEditor);
+ceReset.addEventListener('click', resetClipEditor);
+ceX.addEventListener('click', closeClipEditor);
+ceInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') commitClipEditor();
+  else if (e.key === 'Escape') closeClipEditor();
+});
 
 function setT(v) {
   t = Math.max(T_MIN, Math.min(T_MAX, v));
