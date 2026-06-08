@@ -241,7 +241,7 @@ RINGS.outer[5] = [-96, 34];   // WE (west point)
 // the offset hexagon's bottom edge (BR,BL) into that apex, keeping the east/west points (RE,WE)
 // as the side vertices → corners [TL, TR, RE, apex, WE].
 {
-  const apexZ = HEX.inner[3][1] + 8;     // inner bottom (doors-midpoint z) + a bit outward (south)
+  const apexZ = HEX.inner[3][1] + 28;    // inner bottom (doors-midpoint z), extended well south
   RINGS.mid.splice(3, 2, [0, apexZ]);
 }
 
