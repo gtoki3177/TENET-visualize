@@ -266,9 +266,10 @@ RINGS.mid[1] = [RINGS.mid[1][0], _topZ];   // mid TR → onto outer top edge
 // (RE→apex, apex→WE) keep their original direction, so the apex just follows — the pentagon
 // gets LONGER, not pointier. The mid doors are re-pinned to their original world positions.
 {
-  const DOORWALL = 1.2;                                   // door-wall length multiplier (1 = original)
   const TL = RINGS.mid[0], TR = RINGS.mid[1];             // top corners (already on the outer top wall)
   const RE0 = RINGS.mid[2], WE0 = RINGS.mid[5];           // original offset east/west points
+  // DOORWALL: extend side walls until RE/WE z aligns with the inner ring's south (door) edge
+  const DOORWALL = (HEX.inner[3][1] - TR[1]) / (RE0[1] - TR[1]);
   const apex0z = HEX.inner[3][1] + 8;                     // original apex z (collapsed bottom edge)
   const atR = HEX.midDoors[1][0].at, atL = HEX.midDoors[4][0].at;
   const doorR = [TR[0] + atR * (RE0[0] - TR[0]), TR[1] + atR * (RE0[1] - TR[1])];   // edge1 = TR→RE0

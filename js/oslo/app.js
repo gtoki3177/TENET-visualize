@@ -242,7 +242,7 @@ function snapT(tt) {
 const scrubT = (e) => { const tt = trackToT(e.clientX); return e.shiftKey ? snapT(tt) : tt; };
 function syncSubjFromGlobal() {
   if (!subjKey) return;
-  subjT = SUBJ[subjKey].inv() ? 1 - clamp01((t - T_MIN) / (T_MAX - T_MIN)) : clamp01((t - T_MIN) / (T_MAX - T_MIN));
+  subjT = globalToSubj(subjKey, t);
   paintSubj();
 }
 function trackMove(e) { setT(scrubT(e)); syncSubjFromGlobal(); }
@@ -259,7 +259,12 @@ elTrackWrap.addEventListener('pointerdown', (e) => {
 const playBtn = document.getElementById('play');
 function setPlay(p) { playing = p; playBtn.dataset.playing = p ? '1' : '0'; playBtn.textContent = p ? '❚❚' : '▶'; }
 function pause() { setPlay(false); }
-function togglePlay() { if (t >= T_MAX) setT(T_MIN); setPlay(!playing); }
+function togglePlay() {
+  if (subjKey) { if (subjT >= 1) setSubjT(0, true); }
+  else if (playDir > 0 && t >= T_MAX) setT(T_MIN);
+  else if (playDir < 0 && t <= T_MIN) setT(T_MAX);
+  setPlay(!playing);
+}
 playBtn.addEventListener('click', togglePlay);
 // Spacebar toggles play/pause (ignored while typing in the editor's fields)
 addEventListener('keydown', (e) => {
@@ -353,14 +358,64 @@ function setInvertedTime(on) {
 }
 
 // ---------- Subjective timeline ----------
+// Simple entries: tMin/tMax = raw scene-time bounds; FWD: subjT=0→tMin, INV: subjT=0→tMax.
+// Phase entries: continuous multi-phase arcs (like Neil in Stalsk).
+//   phases: [{a,b,ta,tb,inv,self}, ...] where [a,b] is the subjT slice and [ta,tb] the t range.
+
+// TP 2: INV phase enters at t=0.736, hits turnstile at t=0.313, then FWD to t=0.714.
+const _tp2InvDur  = 0.736 - 0.313;
+const _tp2FwdDur  = 0.714 - 0.313;
+const _tp2Total   = _tp2InvDur + _tp2FwdDur;
+const TP2_MID     = _tp2InvDur / _tp2Total;
+const TP2_PHASES  = [
+  { a: 0,       b: TP2_MID, ta: 0.736, tb: 0.313, inv: true,  self: 'tp2i' },
+  { a: TP2_MID, b: 1,       ta: 0.313, tb: 0.714, inv: false, self: 'tp2f' },
+];
+
+// Neil 2: INV phase enters at t=0.376, hits turnstile at t=0.024, then FWD to t=0.846.
+const _n2InvDur  = 0.376 - 0.024;
+const _n2FwdDur  = 0.846 - 0.024;
+const _n2Total   = _n2InvDur + _n2FwdDur;
+const NEIL2_MID  = _n2InvDur / _n2Total;
+const NEIL2_PHASES = [
+  { a: 0,        b: NEIL2_MID, ta: 0.376, tb: 0.024, inv: true,  self: 'neil2i' },
+  { a: NEIL2_MID, b: 1,        ta: 0.024, tb: 0.846, inv: false, self: 'neil2f' },
+];
+
 const SUBJ = {
-  tp:     { name: 'TP (PAST)',        map: s => s,     inv: () => false },
-  neil:   { name: 'NEIL (PAST)',      map: s => s,     inv: () => false },
-  tp2f:   { name: 'TP 2 (FWD)',       map: s => s,     inv: () => false },
-  neil2f: { name: 'NEIL 2 (FWD)',     map: s => s,     inv: () => false },
-  tp2i:   { name: 'TP 2 (INV)',       map: s => 1 - s, inv: () => true },
-  neil2i: { name: 'NEIL 2 (INV)',     map: s => 1 - s, inv: () => true },
+  tp:    { name: 'TP (PAST)',   tMin: T_MIN, tMax: T_MAX, inv: () => false },
+  neil:  { name: 'NEIL (PAST)', tMin: T_MIN, tMax: T_MAX, inv: () => false },
+  tp2:   { name: 'TP 2',        phases: TP2_PHASES },
+  neil2: { name: 'NEIL 2',      phases: NEIL2_PHASES },
 };
+
+function subjPhaseAt(key, s) {
+  const phases = SUBJ[key].phases;
+  if (!phases) return null;
+  return phases.find(p => s <= p.b) || phases[phases.length - 1];
+}
+function subjToGlobal(key, s) {
+  const p = subjPhaseAt(key, s);
+  if (p) { const frac = p.b === p.a ? 0 : (s - p.a) / (p.b - p.a); return p.ta + frac * (p.tb - p.ta); }
+  const { tMin, tMax, inv } = SUBJ[key];
+  return inv() ? tMax - s * (tMax - tMin) : tMin + s * (tMax - tMin);
+}
+function globalToSubj(key, rawT) {
+  const phases = SUBJ[key].phases;
+  if (phases) {
+    for (const p of phases) {
+      const lo = Math.min(p.ta, p.tb), hi = Math.max(p.ta, p.tb);
+      if (rawT >= lo - 1e-6 && rawT <= hi + 1e-6) {
+        const frac = p.tb === p.ta ? 0 : (rawT - p.ta) / (p.tb - p.ta);
+        return clamp01(p.a + frac * (p.b - p.a));
+      }
+    }
+    return rawT < Math.min(phases[0].ta, phases[0].tb) ? 0 : 1;
+  }
+  const { tMin, tMax, inv } = SUBJ[key];
+  const frac = (rawT - tMin) / (tMax - tMin);
+  return inv() ? 1 - clamp01(frac) : clamp01(frac);
+}
 
 const subjRow = document.getElementById('subj-row');
 const subjTrack = document.getElementById('subj-track');
@@ -368,28 +423,61 @@ const subjFill = document.getElementById('subj-fill');
 const subjHandle = document.getElementById('subj-handle');
 const subjLabel = document.getElementById('subj-label');
 const subjDir = document.getElementById('subj-dir');
-let subjKey = null, subjT = 0;
+let subjKey = null, subjT = 0, _subjPhase = null;
 
 function paintSubj() {
   subjHandle.style.left = `${subjT * 100}%`;
   subjFill.style.width = `${subjT * 100}%`;
-  const inv = subjKey ? SUBJ[subjKey].inv() : false;
+  const p = _subjPhase || subjPhaseAt(subjKey, subjT);
+  const inv = p ? p.inv : (subjKey ? SUBJ[subjKey].inv() : false);
   subjRow.classList.toggle('inv', inv);
   subjDir.textContent = inv ? '◀ inverted · drag right rewinds' : '▶ forward';
 }
-function setSubjT(v) {
+// noHyst=true skips hysteresis (used during playback — each frame only advances ~0.0003
+// which is far below HYST, so without this flag the phase would never switch during play).
+function setSubjT(v, noHyst = false) {
+  const prevPhase = _subjPhase;
   subjT = clamp01(v);
+
+  // Phase selection — with hysteresis for manual scrubbing (prevents mouse-jitter oscillation
+  // at the boundary), immediate for playback (noHyst).
+  const HYST = 0.01;
+  if (SUBJ[subjKey] && SUBJ[subjKey].phases) {
+    const phases = SUBJ[subjKey].phases;
+    const naive = phases.find(p => subjT <= p.b) || phases[phases.length - 1];
+    if (!prevPhase || prevPhase === naive || noHyst) {
+      _subjPhase = naive;
+    } else {
+      const prevIdx = phases.indexOf(prevPhase);
+      const naiveIdx = phases.indexOf(naive);
+      const overshoot = naiveIdx > prevIdx ? subjT - prevPhase.b : prevPhase.b - subjT;
+      _subjPhase = overshoot > HYST ? naive : prevPhase;
+    }
+  }
+
   paintSubj();
-  const mapped = SUBJ[subjKey].map(subjT);
-  setT(mapped * (T_MAX - T_MIN) + T_MIN);
-  setInvertedTime(SUBJ[subjKey].inv());
+
+  // Map subjT → t using hysteresis-corrected phase; clamp frac to [0,1] so we
+  // never extrapolate past the boundary (would flip direction during dead zone).
+  if (_subjPhase) {
+    const p = _subjPhase;
+    const frac = clamp01(p.b === p.a ? 0 : (subjT - p.a) / (p.b - p.a));
+    setT(p.ta + frac * (p.tb - p.ta));
+    setInvertedTime(p.inv);
+    if (_subjPhase !== prevPhase) views.followObject(entities.followables[p.self]);
+  } else {
+    setT(subjToGlobal(subjKey, subjT));
+    setInvertedTime(SUBJ[subjKey].inv());
+  }
 }
 function enterSubjective(key) {
   if (key === 'god' || !SUBJ[key]) { exitSubjective(); return; }
   subjKey = key;
   subjRow.classList.add('on');
   subjLabel.textContent = `SUBJECTIVE · ${SUBJ[key].name}`;
-  subjT = SUBJ[key].inv() ? 1 - clamp01((t - T_MIN) / (T_MAX - T_MIN)) : clamp01((t - T_MIN) / (T_MAX - T_MIN));
+  subjT = globalToSubj(key, t);
+  _subjPhase = subjPhaseAt(key, subjT);
+  if (_subjPhase) views.follow(_subjPhase.self);
   paintSubj();
 }
 function exitSubjective() {
@@ -480,7 +568,7 @@ function animate(now) {
   if (playing) {
     if (subjKey) {
       subjT = Math.min(1, subjT + dt / DURATION);
-      setSubjT(subjT);
+      setSubjT(subjT, true);
       if (subjT >= 1) setPlay(false);
     } else {
       setT(t + playDir * dt / DURATION);

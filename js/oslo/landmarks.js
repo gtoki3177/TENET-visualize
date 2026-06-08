@@ -390,6 +390,23 @@ export function buildLandmarks(root) {
   vanCab.position.set(Math.sin(0.3) * 14, 4, Math.cos(0.3) * 14); vanCab.rotation.y = 0.3; vanCab.castShadow = true; vanGroup.add(vanCab);
 
   // ============================================================
+  //  G2. SHIPPING CONTAINER (red)
+  // ============================================================
+  const containerGroup = new THREE.Group();
+  tag(containerGroup, 'shipping_container');
+  containerGroup.position.set(-60, 0, POS.plane.z + 10);
+  root.add(containerGroup);
+  const contMat = track(new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.7, metalness: 0.3 }), surfaceMats);
+  const contBody = new THREE.Mesh(new THREE.BoxGeometry(16, 12, 36), contMat);
+  contBody.position.set(0, 6, 0); contBody.castShadow = true; containerGroup.add(contBody);
+  // ribbing strips along the length
+  const ribMat = track(new THREE.MeshStandardMaterial({ color: 0x991111, roughness: 0.8 }), surfaceMats);
+  for (let i = -15; i <= 15; i += 5) {
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(16.2, 0.6, 0.6), ribMat);
+    rib.position.set(0, 6, i); containerGroup.add(rib);
+  }
+
+  // ============================================================
   //  H. RED / BLUE AMBIENT LIGHTING
   // ============================================================
   const redAmb = new THREE.PointLight(COL.ambientRed, 0.5, 90);
