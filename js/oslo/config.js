@@ -236,14 +236,7 @@ RINGS.outer[3] = [ 46, 70];   // BR ┐ short SE / SW edges (user 5 / 4)
 RINGS.outer[4] = [-46, 70];   // BL
 RINGS.outer[5] = [-96, 34];   // WE (west point)
 
-// MIDDLE ring is a PENTAGON (2026-06-07): base = the top edge sitting on the outer top wall
-// (user edge 1); it tapers to a single APEX just south of the inner room's two doors. Collapse
-// the offset hexagon's bottom edge (BR,BL) into that apex, keeping the east/west points (RE,WE)
-// as the side vertices → corners [TL, TR, RE, apex, WE].
-{
-  const apexZ = HEX.inner[3][1] + 28;    // inner bottom (doors-midpoint z), extended well south
-  RINGS.mid.splice(3, 2, [0, apexZ]);
-}
+// (MIDDLE ring is reshaped into a PENTAGON in the block AFTER the MERGE below.)
 
 // MERGE: lift the middle ring's top corners up onto the outer ring's top edge, so the
 // middle's NE/NW edges (user 2/3) connect to the outer ring's top edge (user 1). The
@@ -266,6 +259,28 @@ RINGS.mid[1] = [RINGS.mid[1][0], _topZ];   // mid TR → onto outer top edge
   const connAt = atOf(xmR - 8);   // a bit left of the right merge corner, clear of the wall
   HEX.outerDoors[0] = [ { at: atOf(segCw), w: segW }, { at: atOf(segCe), w: segW }, { at: connAt, w: 9 } ];
   HEX._connAt = connAt;
+}
+
+// MIDDLE ring → PENTAGON [TL, TR, RE, apex, WE]. The two side walls that carry the doors
+// (TR→RE, WE→TL) keep their ORIGINAL ANGLE but extend outward by DOORWALL×; the lower walls
+// (RE→apex, apex→WE) keep their original direction, so the apex just follows — the pentagon
+// gets LONGER, not pointier. The mid doors are re-pinned to their original world positions.
+{
+  const DOORWALL = 1.4;                                   // door-wall length multiplier (1 = original)
+  const TL = RINGS.mid[0], TR = RINGS.mid[1];             // top corners (already on the outer top wall)
+  const RE0 = RINGS.mid[2], WE0 = RINGS.mid[5];           // original offset east/west points
+  const apex0z = HEX.inner[3][1] + 8;                     // original apex z (collapsed bottom edge)
+  const atR = HEX.midDoors[1][0].at, atL = HEX.midDoors[4][0].at;
+  const doorR = [TR[0] + atR * (RE0[0] - TR[0]), TR[1] + atR * (RE0[1] - TR[1])];   // edge1 = TR→RE0
+  const doorL = [WE0[0] + atL * (TL[0] - WE0[0]), WE0[1] + atL * (TL[1] - WE0[1])]; // edge4 = WE0→TL
+  const RE = [TR[0] + DOORWALL * (RE0[0] - TR[0]), TR[1] + DOORWALL * (RE0[1] - TR[1])];
+  const WE = [TL[0] + DOORWALL * (WE0[0] - TL[0]), TL[1] + DOORWALL * (WE0[1] - TL[1])];
+  const t = RE[0] / RE0[0];                               // walk along original RE0→apex0 dir to x=0
+  const apex = [0, RE[1] + t * (apex0z - RE0[1])];
+  RINGS.mid = [TL, TR, RE, apex, WE];
+  const frac = (P, A, B) => { const ax = B[0]-A[0], az = B[1]-A[1]; return ((P[0]-A[0])*ax + (P[1]-A[1])*az) / (ax*ax + az*az); };
+  HEX.midDoors[1][0].at = frac(doorR, TR, RE);           // re-pin doors to original world spots
+  HEX.midDoors[4][0].at = frac(doorL, WE, TL);
 }
 
 // World positions of every doorway (each with its outward normal nx/nz).
