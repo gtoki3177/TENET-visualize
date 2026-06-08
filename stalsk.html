@@ -68,9 +68,10 @@ if (window.self === window.top) location.replace('./?scene=stalsk');</script>
   .ed-kf { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink2);
     line-height: 1.6; margin-bottom: 6px; }
   .ed-kf b { color: var(--ink); }
-  #ed-delkey { width: 100%; font: inherit; font-size: 11px; padding: 6px 0; cursor: pointer;
+  #ed-delkey, #ed-delrot { width: 100%; font: inherit; font-size: 11px; padding: 6px 0; cursor: pointer;
     border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--red); }
-  #ed-delkey:disabled { opacity: 0.4; cursor: default; }
+  #ed-delkey { margin-bottom: 5px; }
+  #ed-delkey:disabled, #ed-delrot:disabled { opacity: 0.4; cursor: default; }
   .ed-vis { margin-top: 8px; }
   .ed-vlabel { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink3);
     letter-spacing: 0.06em; margin-bottom: 5px; }
@@ -215,6 +216,10 @@ if (window.self === window.top) location.replace('./?scene=stalsk');</script>
   .marker:hover { border-color: var(--ink); background: var(--ink); }
   .kf-marker { border-color: #b5651d; background: #b5651d; width: 8px; height: 8px; }
   .kf-marker:hover { border-color: #7c4512; background: #7c4512; }
+  /* rotation keyframes: teal circles ABOVE the track so they never mix with the position diamonds */
+  .kf-rot-marker { top: 14%; transform: translate(-50%, -50%); border-radius: 50%;
+    border-color: #2a8fb5; background: #2a8fb5; }
+  .kf-rot-marker:hover { border-color: #14607c; background: #14607c; }
   .tl-scale { display: flex; justify-content: space-between; margin-top: 7px;
     font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink3); letter-spacing: 0.06em; }
 
@@ -301,7 +306,6 @@ if (window.self === window.top) location.replace('./?scene=stalsk');</script>
       </div>
     </header>
 
-    <div class="hint">DRAG to orbit · SCROLL to zoom · X-RAY reveals the underground · timeline below</div>
 
     <!-- Left: view expandable panel -->
     <div class="ctrl-panel dp-left" id="view-panel">
@@ -337,13 +341,6 @@ if (window.self === window.top) location.replace('./?scene=stalsk');</script>
       </div>
     </div>
 
-    <!-- Legend -->
-    <aside class="legend">
-      <h2>Time Vector</h2>
-      <div class="leg-row"><span class="bar" style="background:var(--red)"></span> Forward — Red Team / TP / Ives</div>
-      <div class="leg-row"><span class="bar" style="background:var(--blue)"></span> Inverted — Blue Team / Neil</div>
-      <div class="leg-row"><span class="bar" style="background:#4e8a5a"></span> Neil's car (prop)</div>
-    </aside>
 
     <!-- Timeline -->
     <footer class="timeline" id="timeline">

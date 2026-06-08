@@ -197,12 +197,26 @@ function refreshTimelineMarkers(actorName) {
   const frames = (entities.edit.tracks[actorName] || []);
   for (const f of frames) {
     if (f.t < T_MIN || f.t > T_MAX) continue;
-    const m = document.createElement('button');
-    m.className = 'marker kf-marker';
-    m.style.left = `${(f.t - T_MIN) / (T_MAX - T_MIN) * 100}%`;
-    m.title = `keyframe @ t=${f.t.toFixed(3)}`;
-    m.addEventListener('click', (e) => { e.stopPropagation(); seekTo(f.t); });
-    elTrack.appendChild(m);
+    const left = `${(f.t - T_MIN) / (T_MAX - T_MIN) * 100}%`;
+    // Position marker — only on keys that carry a position; sits on the track.
+    if (f.p) {
+      const m = document.createElement('button');
+      m.className = 'marker kf-marker';
+      m.style.left = left;
+      m.title = `position keyframe @ t=${f.t.toFixed(3)}`;
+      m.addEventListener('click', (e) => { e.stopPropagation(); seekTo(f.t); });
+      elTrack.appendChild(m);
+    }
+    // Rotation marker — only on keys that carry a rotation (ry); shown ABOVE the track so the
+    // two kinds never read as one mixed row.
+    if (f.ry !== undefined) {
+      const r = document.createElement('button');
+      r.className = 'marker kf-marker kf-rot-marker';
+      r.style.left = left;
+      r.title = `rotation keyframe @ t=${f.t.toFixed(3)} · ry=${f.ry.toFixed(3)}`;
+      r.addEventListener('click', (e) => { e.stopPropagation(); seekTo(f.t); });
+      elTrack.appendChild(r);
+    }
   }
 }
 

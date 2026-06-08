@@ -35,8 +35,8 @@ export const POS = {
   entrance:  { x: -52,  z: -108 },  // mouth of the main battlefield
   spheres:   { x: -28,  z: -128 },  // battlefield feature (moved north, out of the turnstile pit)
   stepped:   { x: -98,  z: -120 },  // battlefield feature
-  building:  { x: -40,  z: -230 },  // double-exploding building (5:00) — just SE of the tunnel entrance
-  cave:      { x: -75,  z: -290 },  // tunnel entrance — directly north of the building cluster
+  building:  { x: -55,  z: -300 },  // double-exploding building (5:00) — just SE of the tunnel entrance
+  cave:      { x: -105, z: -355 },  // tunnel entrance — directly north of the building cluster
 
   // Eastern detonation hypocenter + buried chamber (far EAST-SOUTH)
   hill:      { x: 360,  z: 70  },   // big terraced hill — detonation point (further south)
@@ -71,7 +71,7 @@ function terrace(h, step = 7) {
 // Terrain height field, shared so actors sit on the ground.
 export function groundHeight(x, z) {
   const P = terrainParams;
-  let y = Math.sin(x * 0.010) * 1.3 + Math.cos(z * 0.012) * 1.3;
+  let y = 0;  // flat battlefield floor (base noise removed)
 
   // Eastern detonation hypocenter — a broad terraced mesa.
   const R = P.hillR;

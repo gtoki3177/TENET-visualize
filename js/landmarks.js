@@ -88,13 +88,14 @@ export function buildLandmarks(root) {
       z = -120 - rnd() * 115;
     }
     const w = 13 + rnd() * 17, d = 12 + rnd() * 14, h = 13 + rnd() * 30;
-    const tan = rnd() > 0.8;
-    const genRot = rnd() * 0.7 - 0.35;     // consume RNG every iteration (keeps other indices stable)
+    rnd();                                 // (was the tan flag) consume RNG so indices stay stable
+    rnd();                                 // (was genRot) consume RNG so indices stay stable
     if (DELETED_BLDG.has(i)) continue;     // surplus ruin — removed from the layout
-    const b = ruin(w, h, d, tan ? COL.tan : COL.building);
+    const b = ruin(w, h, d, COL.building); // all ruins the same grey-white (no tan one)
     const xf = BLDG_XFORM[i];
-    if (xf) { b.position.set(xf[0], gY(xf[0], xf[1]) + h / 2, xf[1]); b.rotation.y = xf[2]; }
-    else { b.position.set(x, gY(x, z) + h / 2, z); b.rotation.y = genRot; }
+    if (xf) b.position.set(xf[0], gY(xf[0], xf[1]) + h / 2, xf[1]);
+    else b.position.set(x, gY(x, z) + h / 2, z);
+    b.rotation.y = 0;                      // all ruins aligned parallel (positions unchanged)
     tag(b, 'bldg-' + i);
     city.add(b);
   }
@@ -124,7 +125,7 @@ export function buildLandmarks(root) {
   // Central entrance: six trapezoid panels leaning inward, with gaps between them. Lifted
   // up off the funnel floor so the structure reads clearly above the rim. It's its OWN
   // editable ('turnstile-core'), separate from the basin, so its height can be tuned.
-  const pyr = new THREE.Group(); pyr.position.set(0, floorY + 9, 0); ts.add(pyr);
+  const pyr = new THREE.Group(); pyr.position.set(0, floorY + 2, 0); ts.add(pyr);
   const bw = 9, tw = 3, ph = 15, th = 2.2;       // base width, top width, height, thickness
   const shape = new THREE.Shape();
   shape.moveTo(-bw / 2, 0); shape.lineTo(bw / 2, 0); shape.lineTo(tw / 2, ph); shape.lineTo(-tw / 2, ph); shape.closePath();

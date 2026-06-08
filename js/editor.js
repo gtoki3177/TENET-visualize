@@ -272,9 +272,14 @@ export class Editor {
   }
   commitActor(o) {
     const name = o.userData.trackName, t = this.getTime();
-    // Rotate-mode drags also record rotation.y onto the keyframe; translate/scale leave it alone.
-    const ry = this._gizmoMode === 'rotate' ? o.rotation.y : undefined;
-    this.actorsApi.setKeyframe(name, t, o.position, ry);
+    // Rotate edits ONLY the rotation key; Move/Scale edit ONLY the position key — never both, so a
+    // rotate-drag never drops a stray position keyframe (and vice versa). Read the heading from the
+    // QUATERNION, not o.rotation.y: XYZ-Euler clamps the middle (Y) axis to ±90°, which would otherwise
+    // snap any 2nd/3rd-quadrant turn straight back into the 1st/4th.
+    if (this._gizmoMode === 'rotate') {
+      const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(o.quaternion);
+      this.actorsApi.setKeyframe(name, t, undefined, Math.atan2(fwd.x, fwd.z));
+    } else this.actorsApi.setKeyframe(name, t, o.position);
     this.actorsApi.freeze.delete(name);
     this.store.tracks[name] = this.actorsApi.serializeTrack(name);
     save(this.store); this.updatePanel(); this.notifySelection();
@@ -295,6 +300,15 @@ export class Editor {
     const name = o.userData.trackName;
     this.pushTrackUndo(o);
     if (this.actorsApi.deleteKeyframe(name, this.getTime())) {
+      this.store.tracks[name] = this.actorsApi.serializeTrack(name); save(this.store);
+    } else { this.undoStack.pop(); }
+    this.updatePanel(); this.notifySelection();
+  }
+  deleteRotationKey() {       // strip only the rotation (ry) from the key at t, keeping its position
+    const o = this.selected; if (!o || !this.isActor(o)) return;
+    const name = o.userData.trackName;
+    this.pushTrackUndo(o);
+    if (this.actorsApi.deleteRotation(name, this.getTime())) {
       this.store.tracks[name] = this.actorsApi.serializeTrack(name); save(this.store);
     } else { this.undoStack.pop(); }
     this.updatePanel(); this.notifySelection();
@@ -479,7 +493,8 @@ export class Editor {
       <div class="ed-read" id="ed-read"></div>
       <div class="ed-actor" id="ed-actor">
         <div class="ed-kf" id="ed-kf"></div>
-        <button data-act="delkey" id="ed-delkey">Delete keyframe @ t</button>
+        <button data-act="delkey" id="ed-delkey">Del position @ t</button>
+        <button data-act="delrot" id="ed-delrot">Del rotation @ t</button>
         <div class="ed-vis" id="ed-vis"></div>
       </div>
       <div class="ed-row">
@@ -520,6 +535,7 @@ export class Editor {
         case 'reset': this.resetSelected(); break;
         case 'deselect': this.deselect(); break;
         case 'delkey': this.deleteKeyframe(); break;
+        case 'delrot': this.deleteRotationKey(); break;
         case 'export': ta.value = this.exportJSON(); ta.select(); break;
         case 'import': ta.value = this.importJSON(ta.value) ? '✓ applied' : '✗ invalid JSON'; break;
         case 'resetall': if (confirm('Reset ALL scene edits?')) this.resetAll(); break;
@@ -637,10 +653,14 @@ export class Editor {
     const o = this.selected; if (!this.isActor(o) || !this.actorsApi) return;
     const name = o.userData.trackName, t = this.getTime();
     const here = this.actorsApi.hasKeyframe(name, t);
+    const hasPos = this.actorsApi.hasPosition ? this.actorsApi.hasPosition(name, t) : here;
     this.panel.querySelector('#ed-kf').innerHTML =
       `track <b>${name}</b> · ${this.actorsApi.count(name)} keys<br>clock t = ${t.toFixed(3)} · ${here ? 'keyframe HERE' : 'no keyframe here'}`;
     const del = this.panel.querySelector('#ed-delkey');
-    del.disabled = !here; del.style.opacity = here ? 1 : 0.4;
+    del.disabled = !hasPos; del.style.opacity = hasPos ? 1 : 0.4;
+    const hasRot = this.actorsApi.hasRotation && this.actorsApi.hasRotation(name, t);
+    const delr = this.panel.querySelector('#ed-delrot');
+    if (delr) { delr.disabled = !hasRot; delr.style.opacity = hasRot ? 1 : 0.4; }
     if (this.actorsApi.visMode === 'keys') {
       const vnow = this.panel.querySelector('#ed-vnow');
       if (vnow) vnow.textContent = this.actorsApi.visAt(name, t) ? 'shown' : 'hidden';
