@@ -4,11 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Oslo Freeport · The Turnstile Encounter</title>
+<link rel="icon" href="data:,">
 <script>/* opened directly (not in the index shell)? go to the shell so the scene switcher shows */
 if (window.self === window.top) location.replace('./?scene=oslo');</script>
 <meta name="description" content="Interactive 3D visualization of the Oslo Freeport scene from TENET — the Protagonist fights his inverted self at the Rotas turnstile." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
@@ -53,10 +56,16 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
     backdrop-filter: blur(10px); padding: 11px 12px 12px; display: none;
     max-height: calc(100vh - 200px); overflow-y: auto; }
   .editor-panel.on { display: block; }
+  /* Minimized: only the header row stays visible; edit mode remains active */
+  .editor-panel.minimized > *:not(.ed-head) { display: none !important; }
   .ed-head { display: flex; align-items: center; justify-content: space-between;
     font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
     letter-spacing: 0.16em; color: var(--ink3); margin-bottom: 9px; }
   .ed-x { border: 0; background: transparent; color: var(--ink3); cursor: pointer; font-size: 12px; }
+  .ed-addev { width: 100%; font: inherit; font-size: 11px; padding: 6px 0; margin-bottom: 8px;
+    cursor: pointer; border: 1px solid #b5651d; border-radius: 3px; background: #fdf4ec;
+    color: #b5651d; font-weight: 600; letter-spacing: 0.04em; }
+  .ed-addev:hover { background: #b5651d; color: #fff; }
   .ed-pick { width: 100%; font: inherit; font-size: 11px; padding: 5px 6px; margin-bottom: 8px;
     border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); cursor: pointer; }
   .ed-sel { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink);
@@ -65,6 +74,23 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
   .ed-kf { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink2);
     line-height: 1.6; margin-bottom: 6px; }
   .ed-kf b { color: var(--ink); }
+  .ed-head-btns { display: flex; gap: 4px; }
+  /* Keyframe value editing inputs */
+  #ed-kfvals { margin-bottom: 6px; }
+  .ed-kflabel { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
+    color: var(--ink2); letter-spacing: 0.06em; margin: 4px 0 5px; }
+  .ed-kfhint { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink3);
+    margin: 2px 0 6px; line-height: 1.5; }
+  .ed-kfrow { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .ed-kfrow label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink3);
+    width: 20px; flex-shrink: 0; }
+  .ed-kfin { flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 5px;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); cursor: ew-resize; }
+  .ed-kfin:focus { cursor: text; outline: 1px solid var(--ink2); }
+  /* The `t` row is the timeline-position editor — slightly highlighted */
+  .ed-kfrow-t { background: rgba(232, 138, 47, 0.08); border-radius: 3px;
+    padding: 3px 5px; margin: 0 -5px 6px; }
+  .ed-kfrow-t label { color: #b86a1f; font-weight: 600; }
   #ed-delkey { width: 100%; font: inherit; font-size: 11px; padding: 6px 0; cursor: pointer;
     border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--red); }
   #ed-delkey:disabled { opacity: 0.4; cursor: default; }
@@ -166,10 +192,76 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
   .clock-blue { margin-left: auto; flex-direction: row-reverse; }
   .clock-dbg .val { font-size: 11px; opacity: 0.45; }
   .clock-dbg .lab { font-size: 9px; opacity: 0.45; }
-  .event { flex: 1; text-align: center; }
+  .event { flex: 1; text-align: center; cursor: default; }
   .event .ek { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--ink3); }
-  .event #event-label { font-size: 13px; color: var(--ink); margin-top: 1px; }
+  .event #event-label { font-size: 13px; color: var(--ink); margin-top: 1px;
+    border-bottom: 1px dotted transparent; transition: border-color .15s; }
+  .event:hover #event-label { border-bottom-color: var(--ink3); }
+
+  /* Clip preview overlay — shown on hover of the event title.
+     Positioned above the timeline so the title stays visible below. */
+  .clip-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 220px; z-index: 30;
+    pointer-events: none; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 10px; opacity: 0; transition: opacity 80ms; }
+  .clip-overlay.on { opacity: 1; }
+  /* Player ratio crops the baked-in letterbox of the 1280x720 source.
+     Lower aspect-ratio number = taller player. 2.39 = full cinematic crop,
+     2.0 = taller (some bars may show), 16/9 = no cropping at all. */
+  .clip-overlay video { width: 70vw; max-width: min(1100px, calc((100vh - 240px) * 16 / 9));
+    aspect-ratio: 16 / 9; border-radius: 6px; box-shadow: 0 12px 48px rgba(0,0,0,0.45);
+    background: #000; display: block; object-fit: contain; }
+  .clip-overlay .clip-cap { font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    letter-spacing: 0.07em; color: rgba(255,255,255,0.85); background: rgba(0,0,0,0.52);
+    padding: 4px 12px; border-radius: 20px; max-width: 60vw; text-align: center; }
+
+  /* In edit mode, the title becomes clickable to set its clip path */
+  body.editing .event { cursor: pointer; }
+  /* Event markers become draggable in edit mode — re-times the story beat. */
+  body.editing .ev-marker { cursor: ew-resize; }
+  body.editing .event #event-label { border-bottom: 1px dashed #b5651d; color: #b5651d; }
+  body.editing .event:hover #event-label { background: rgba(181,101,29,0.08); }
+
+  /* Clip-path editor popover */
+  .clip-edit { position: fixed; left: 50%; bottom: 200px; transform: translateX(-50%);
+    z-index: 40; min-width: 420px; max-width: 80vw;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    backdrop-filter: blur(10px); padding: 12px 14px; display: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.18); }
+  .clip-edit.on { display: block; }
+  .clip-edit .ce-head { font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.16em; color: var(--ink3); text-transform: uppercase; margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center; }
+  .clip-edit .ce-x { border: 0; background: transparent; color: var(--ink3); cursor: pointer; font-size: 14px; }
+  .clip-edit .ce-title { font-size: 12px; color: var(--ink2); margin-bottom: 8px; line-height: 1.4; }
+  .clip-edit .ce-field { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .clip-edit .ce-field label { font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.08em; color: var(--ink2); width: 72px; flex: 0 0 auto; }
+  .clip-edit .ce-row { display: flex; gap: 6px; margin-top: 4px; }
+  .clip-edit select { flex: 1; font: inherit; font-size: 12px; padding: 6px 8px;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
+  .clip-edit .ce-none-label { display: flex; align-items: center; gap: 6px; font-size: 11px;
+    color: var(--ink2); font-family: inherit; letter-spacing: 0; width: auto; cursor: pointer; }
+  .clip-edit .ce-none-label input { flex: 0 0 auto; width: 14px; height: 14px; margin: 0; cursor: pointer; }
+  .clip-edit input:disabled { background: #f4f5f7; color: var(--ink3); cursor: not-allowed; }
+  .clip-edit input { flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); }
+  .clip-edit button { font: inherit; font-size: 11px; padding: 6px 10px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink2); }
+  .clip-edit .ce-save { background: #b5651d; color: #fff; border-color: #b5651d; }
+  /* Title editor + delete button — only visible when the clip-edit popover is open on a user-added event */
+  .clip-edit .ce-title-edit, .clip-edit .ce-delete { display: none; }
+  .clip-edit.ce-added .ce-title-edit { display: flex; }
+  .clip-edit.ce-added .ce-delete { display: inline-block; }
+  .clip-edit .ce-delete { background: #fff; border-color: #c44; color: #c44; margin-left: auto; }
+  .clip-edit .ce-delete:hover { background: #c44; color: #fff; }
+  .clip-edit .ce-hint { font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    color: var(--ink3); margin-top: 6px; }
+  .clip-edit .ce-export-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line2); }
+  .clip-edit .ce-export-row button { width: 100%; font: inherit; font-size: 10px;
+    letter-spacing: 0.04em; padding: 6px 0; cursor: pointer; border: 1px solid var(--line);
+    border-radius: 3px; background: #fff; color: var(--ink3); }
+  .clip-edit .ce-export-row button:hover { color: var(--ink2); border-color: var(--ink2); }
   .play { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line);
     background: #fff; color: var(--ink); cursor: pointer; font-size: 13px; flex: 0 0 auto; }
   .play[data-playing="1"] { background: var(--ink); color: #fff; border-color: var(--ink); }
@@ -216,6 +308,9 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
     transform: translate(-50%, -50%) rotate(45deg); background: #fff;
     border: 1.5px solid var(--ink2); padding: 0; cursor: pointer; }
   .marker:hover { border-color: var(--ink); background: var(--ink); }
+  /* User-added event markers — orange fill to distinguish them from factory beats */
+  .ev-marker.ev-added { background: #f0a050; border-color: #b5651d; }
+  .ev-marker.ev-added:hover { background: #b5651d; border-color: #b5651d; }
   /* visibility keyframes: round markers sitting just below the track */
   .vis-marker { width: 8px; height: 8px; border-radius: 50%;
     transform: translate(-50%, 11px) rotate(0); }
@@ -382,16 +477,49 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
         <li>The inverted self retreats back toward the turnstile. Neil pulls the Protagonist out as the freeport burns.</li>
         <li><b>Switch views</b> (left) to ride with the forward or inverted Protagonist, or with Neil. The subjective timeline for the inverted self runs the clock backward.</li>
       </ul>
-      <button class="intro-close" id="intro-close">Enter the freeport</button>
+      <button class="intro-close" id="intro-close" onclick="document.getElementById('intro').classList.add('hidden');try{localStorage.setItem('tenet_oslo_seen','1')}catch(e){}">Enter the freeport</button>
       <div class="intro-note">Part of a larger TENET battle timeline visualization. Switch scenes via the tabs above.</div>
+    </div>
+  </div>
+
+  <!-- Clip preview overlay (shown on event-title hover) -->
+  <div class="clip-overlay" id="clip-overlay">
+    <video id="clip-video" loop playsinline preload="metadata"></video>
+    <div class="clip-cap" id="clip-cap"></div>
+  </div>
+
+  <!-- Clip-path editor (opened in edit mode by clicking the event title) -->
+  <div class="clip-edit" id="clip-edit">
+    <div class="ce-head"><span>Clip files</span><button class="ce-x" id="ce-x">×</button></div>
+    <div class="ce-title" id="ce-title"></div>
+    <!-- Title editor row: visible only for user-added events (toggled by .ce-added on .clip-edit) -->
+    <div class="ce-field ce-title-edit"><label>Title</label>
+      <input type="text" id="ce-title-input" placeholder="Event title shown on the timeline" /></div>
+    <div class="ce-field"><label>POV</label>
+      <select id="ce-view"></select></div>
+    <div class="ce-field ce-none-row"><label></label>
+      <label class="ce-none-label"><input type="checkbox" id="ce-none" /> No clip available for this POV</label></div>
+    <div class="ce-field"><label>Forward →</label>
+      <input type="text" id="ce-input-f" placeholder="clips/oslo/01.mp4" /></div>
+    <div class="ce-field"><label>Reverse ←</label>
+      <input type="text" id="ce-input-r" placeholder="clips/oslo/01-rev.mp4" /></div>
+    <div class="ce-row">
+      <button class="ce-save" id="ce-save">Save</button>
+      <button id="ce-reset" title="Restore default path for this POV">Reset</button>
+      <button id="ce-none-all" title="Mark this event as having no clip for every POV">No clip (all)</button>
+      <button class="ce-delete" id="ce-delete" title="Delete this user-added event">🗑 Delete event</button>
+    </div>
+    <div class="ce-hint">POV other than God = falls back to God if empty · Enter to save · Esc to close</div>
+    <div class="ce-export-row">
+      <button id="ce-export" title="Download all clip assignments as clips.json — commit the file to make settings permanent">↓ Export all clips as JSON</button>
     </div>
   </div>
 
   <script type="importmap">
   {
     "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
     }
   }
   </script>

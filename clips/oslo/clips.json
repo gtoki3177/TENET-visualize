@@ -1,0 +1,224 @@
+{
+  "__eventTimes": {
+    "0.3000": 0.23271803780199624,
+    "0.4500": 0.3077207934655974,
+    "0.6000": 0.5761190525407475,
+    "0.8000": 0.7800521359301539,
+    "0.1500": 0.13664014582836181
+  },
+  "__addedEvents": [
+    {
+      "id": "umq5sqp4ofz",
+      "t": 0.6715770493137186,
+      "title": "ambulance"
+    }
+  ],
+  "0.000": {
+    "f": "clips/oslo/planecrash.mp4",
+    "r": "clips/oslo/planecrash-rev.mp4",
+    "views": {
+      "tp": {
+        "f": "clips/oslo/planecrash-tp1.mp4",
+        "r": "clips/oslo/planecrash-tp1-rev.mp4"
+      },
+      "neil": {
+        "f": "clips/oslo/planecrash-tp1.mp4",
+        "r": "clips/oslo/planecrash-tp1-rev.mp4"
+      },
+      "tp2": {
+        "f": null,
+        "r": null
+      },
+      "neil2": {
+        "f": null,
+        "r": null
+      },
+      "neil2i": {
+        "f": "clips/oslo/bwd2-neil2.mp4",
+        "r": "clips/oslo/bwd2-neil2-rev.mp4"
+      }
+    }
+  },
+  "1.000": {
+    "views": {
+      "tp2": {
+        "f": "",
+        "r": ""
+      },
+      "tp": {
+        "f": null,
+        "r": null
+      },
+      "neil": {
+        "f": null,
+        "r": null
+      },
+      "tp2i": {
+        "f": "clips/oslo/pull-tp2.mp4",
+        "r": "clips/oslo/pull-tp2-rev.mp4"
+      },
+      "neil2f": {
+        "f": "clips/oslo/pull-tp2.mp4",
+        "r": ""
+      },
+      "neil2i": {
+        "f": "clips/oslo/pull-tp2.mp4",
+        "r": "clips/oslo/pull-tp2-rev.mp4"
+      }
+    },
+    "f": "clips/oslo/pull-tp2-rev.mp4",
+    "r": "clips/oslo/pull-tp2.mp4"
+  },
+  "0.308": {
+    "f": "clips/oslo/fight-tp1.mp4",
+    "r": "clips/oslo/fight-tp2.mp4",
+    "views": {
+      "neil": {
+        "f": "clips/oslo/fight-neil.mp4",
+        "r": "clips/oslo/fight-neil-rev.mp4"
+      },
+      "tp2": {
+        "f": "clips/oslo/fight-tp2.mp4",
+        "r": "clips/oslo/fight-neil.mp4"
+      },
+      "tp2i": {
+        "f": "clips/oslo/fight-tp2.mp4",
+        "r": "clips/oslo/fight-tp1.mp4"
+      },
+      "tp2f": {
+        "f": "clips/oslo/fight-neil.mp4",
+        "r": "clips/oslo/fight-neil-rev.mp4"
+      },
+      "neil2i": {
+        "f": null,
+        "r": null
+      },
+      "neil2f": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "0.233": {
+    "f": "clips/oslo/getin-tp1.mp4",
+    "r": "clips/oslo/getin-tp1-rev.mp4",
+    "views": {
+      "tp2": {
+        "f": null,
+        "r": null
+      },
+      "neil2": {
+        "f": null,
+        "r": null
+      },
+      "neil2i": {
+        "f": "clips/oslo/bwd-neil2.mp4",
+        "r": ""
+      },
+      "neil2f": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "0.780": {
+    "f": "clips/oslo/door-tp1.mp4",
+    "r": "clips/oslo/door-tp2.mp4",
+    "views": {
+      "tp2": {
+        "f": "clips/oslo/fwd2-tp2.mp4",
+        "r": "clips/oslo/door-tp2.mp4"
+      },
+      "neil": {
+        "f": null,
+        "r": null
+      },
+      "tp2i": {
+        "f": "clips/oslo/door-tp2.mp4",
+        "r": "clips/oslo/door-tp1.mp4"
+      },
+      "tp2f": {
+        "f": "clips/oslo/fwd-neil2.mp4",
+        "r": ""
+      },
+      "neil2i": {
+        "f": null,
+        "r": null
+      },
+      "neil2f": {
+        "f": "clips/oslo/fwd-neil2.mp4",
+        "r": "clips/oslo/fwd-neil2-rev.mp4"
+      }
+    }
+  },
+  "0.137": {
+    "f": "clips/oslo/slip-tp1.mp4",
+    "r": "clips/oslo/slip-tp1-rev.mp4",
+    "views": {
+      "neil2f": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "0.576": {
+    "f": "clips/oslo/fight2-tp1.mp4",
+    "r": "clips/oslo/fight2-tp2.mp4",
+    "views": {
+      "neil": {
+        "f": "clips/oslo/fight2-neil.mp4",
+        "r": "clips/oslo/fight2-neil-rev.mp4"
+      },
+      "tp2": {
+        "f": "clips/oslo/fight2-tp2.mp4",
+        "r": "clips/oslo/fight2-neil.mp4"
+      },
+      "tp2f": {
+        "f": "clips/oslo/fwd-tp2.mp4",
+        "r": "clips/oslo/fwd-tp2-rev.mp4"
+      },
+      "tp2i": {
+        "f": "clips/oslo/fight2-tp2.mp4",
+        "r": "clips/oslo/fight2-tp1.mp4"
+      },
+      "neil2i": {
+        "f": "clips/oslo/bwd-neil2.mp4",
+        "r": "clips/oslo/bwd-neil2-rev.mp4"
+      },
+      "neil2f": {
+        "f": null,
+        "r": null
+      }
+    }
+  },
+  "0.672": {
+    "f": "clips/oslo/fwd2-tp2.mp4",
+    "r": "clips/oslo/fwd2-tp2-rev.mp4",
+    "views": {
+      "tp": {
+        "f": null,
+        "r": null
+      },
+      "neil": {
+        "f": null,
+        "r": null
+      },
+      "tp2i": {
+        "f": null,
+        "r": null
+      },
+      "neil2": {
+        "f": null,
+        "r": null
+      },
+      "neil2i": {
+        "f": null,
+        "r": null
+      },
+      "neil2f": {
+        "f": null,
+        "r": null
+      }
+    }
+  }
+}
