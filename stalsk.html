@@ -1573,15 +1573,27 @@
             .ctrl-header { padding: 8px 10px; gap: 6px; font-size: 12px; }
             .ctrl-panel.open .ctrl-list { max-height: 52vh; overflow-y: auto; }
 
-            /* Timeline: full-width, event label drops to its own line, bigger touch targets */
+            /* Timeline: controls + both clocks on ONE row, the Key Event on its OWN row below */
             .timeline { left: 6px; right: 6px; bottom: 6px; padding: 9px 11px 11px; }
-            .tl-top { gap: 9px; margin-bottom: 9px; flex-wrap: wrap; }
-            .tl-top .event { order: 10; flex: 1 1 100%; }
+            .tl-top { gap: 8px 10px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+            .tl-top .clock-blue { margin-left: auto; }
+            .tl-top .event { order: 10; flex: 1 0 100%; text-align: left;
+                margin-top: 4px; padding-top: 7px; border-top: 1px solid var(--line2); }
+            .event .ek { display: block; }
+            .event #event-label { font-size: 12.5px; line-height: 1.35; }
             .tl-track-wrap { height: 40px; }
             #track { height: 6px; }
             #handle { width: 22px; height: 22px; }
             .tl-scale { font-size: 8px; }
             .tl-scale span:nth-child(2), .tl-scale span:nth-child(4) { display: none; }
+
+            /* Subjective (personal) track: wrap onto two rows so the bar gets the full width
+               instead of collapsing to a single dot between the label and direction text. */
+            .subj-row { flex-wrap: wrap; gap: 5px 9px; }
+            .subj-row .subj-label { order: 1; }
+            .subj-row .subj-dir { order: 2; min-width: 0; margin-left: auto; text-align: right; font-size: 8.5px; }
+            .subj-row #subj-track { order: 3; flex: 1 1 100%; height: 9px; }
+            .subj-row #subj-handle { width: 18px; height: 18px; }
 
             /* Authoring panels: keep inside the viewport, scroll instead of overflow */
             .editor-panel { top: 56px; left: 8px; right: 8px; width: auto; max-height: calc(100vh - 200px); }
