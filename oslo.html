@@ -380,6 +380,38 @@ if (window.self === window.top) location.replace('./?scene=oslo');</script>
     font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink3);
     letter-spacing: 0.06em; background: var(--panel); padding: 4px 10px; border-radius: 20px;
     border: 1px solid var(--line); backdrop-filter: blur(6px); }
+
+  /* ===================== Mobile / small-screen adaptation ===================== */
+  @media (max-width: 640px) {
+    .topbar { height: 48px; padding: 0 10px; flex-wrap: nowrap; }
+    .brand { gap: 8px; min-width: 0; flex: 1; }
+    .brand h1 { font-size: 11.5px; letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand .sub { display: none; }
+    .topbar-right { gap: 6px; flex-shrink: 0; }
+    .icon-btn { height: 34px; min-width: 34px; padding: 0 8px; white-space: nowrap; }
+    .hint { display: none; }
+
+    .ctrl-panel { top: 56px; min-width: 0; max-width: 66vw; }
+    .dp-left { left: 8px; }
+    .dp-right { right: 8px; }
+    .ctrl-header { padding: 8px 10px; gap: 6px; font-size: 12px; }
+    .ctrl-panel.open .ctrl-list { max-height: 52vh; overflow-y: auto; }
+
+    .timeline { left: 6px; right: 6px; bottom: 6px; padding: 9px 11px 11px; }
+    .tl-top { gap: 9px; margin-bottom: 9px; flex-wrap: wrap; }
+    .tl-top .event { order: 10; flex: 1 1 100%; }
+    .tl-top .clock-dbg { display: none; }
+    .tl-track-wrap { height: 40px; }
+    #track { height: 6px; }
+    #handle { width: 22px; height: 22px; }
+    .tl-scale { font-size: 8px; }
+    .tl-scale span:nth-child(2), .tl-scale span:nth-child(3),
+    .tl-scale span:nth-child(5), .tl-scale span:nth-child(6) { display: none; }
+
+    .editor-panel { top: 56px; left: 8px; right: 8px; width: auto; max-height: calc(100vh - 200px); }
+    .clip-edit { min-width: 0; left: 6px; right: 6px; max-width: none; transform: none; bottom: 160px; }
+    .intro-card { padding: 22px 18px; }
+  }
 </style>
 </head>
 <body data-theme="console">

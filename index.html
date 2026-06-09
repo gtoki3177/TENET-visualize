@@ -29,6 +29,13 @@
   .dot-red { background: #e5484d; }
   .dot-blue { background: #2f6fed; }
   iframe { position: absolute; top: 40px; left: 0; width: 100%; height: calc(100% - 40px); border: none; }
+  @media (max-width: 640px) {
+    .scene-tabs { height: 38px; }
+    .scene-tab { padding: 0 11px; font-size: 9px; letter-spacing: 0.08em; flex: 1; justify-content: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .scene-tab .tab-dot { margin-right: 6px; }
+    iframe { top: 38px; height: calc(100% - 38px); }
+  }
 </style>
 </head>
 <body>
