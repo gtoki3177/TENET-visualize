@@ -236,6 +236,14 @@ export function buildWorld(scene) {
     }
   }
 
+  // ---------- Extraction shaft: the hole in the hypocenter TP & Ives are hauled up through ----------
+  const hyHoleY = gY(POS.chamber.x, POS.chamber.z);   // hilltop surface above the vault
+  const hyShaft = new THREE.Mesh(new THREE.CylinderGeometry(8, 6.5, 70, 18, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x07090d, roughness: 1, side: THREE.DoubleSide }));
+  hyShaft.position.set(POS.chamber.x, hyHoleY - 35, POS.chamber.z); root.add(hyShaft);
+  const hyCap = new THREE.Mesh(new THREE.CircleGeometry(8, 18), new THREE.MeshBasicMaterial({ color: 0x07090d }));
+  hyCap.rotation.x = -Math.PI / 2; hyCap.position.set(POS.chamber.x, hyHoleY + 0.6, POS.chamber.z); root.add(hyCap);
+
   // ---------- Detonation flash at the SE highland ----------
   const flash = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12),
     new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0 }));
@@ -316,9 +324,9 @@ export function buildWorld(scene) {
     const tauB = Math.max(0, (T5 - t) * TSCALE);
     for (const c of bottomChunks) applyBallistic(c, tauB);
     setDust(bottomDust, clamp01(tauB / DTAU), 26, 0.1);
-    const fp = clamp01((t - 0.92) / 0.08);
+    const fp = clamp01((t - 0.95) / 0.05);                          // builds to the blast AT 0:00 (t=1.0)
     flash.scale.setScalar(1 + fp * 70);
-    flash.material.opacity = fp * 0.5 * (1 - clamp01((t - 0.985) / 0.015));
+    flash.material.opacity = fp * 0.5 * (1 - clamp01((t - 1.0) / 0.04));  // peaks at 0:00, fades into the aftermath
 
     // Algorithm: hauled up the rope with TP & Ives at the extraction (vault → hilltop)
     const ar = clamp01((t - 0.88) / 0.09);

@@ -330,19 +330,25 @@ export function buildEntities(scene, world) {
   // Trails behind TP toward the cave (honking), then drives on to the hill for the
   // rope rescue. After the blast it stays on the plateau — Neil continues on foot.
   const car = makeCar(COL.neilCar); root.add(car);
-  const carFrames = [
-    { t: 0.00, p: gp(ts.x + 8, ts.z - 18) },       // parked in the north ramp corridor
-    { t: 0.42, p: gp(ts.x + 8, ts.z - 18) },       // still parked as Neil reverts
-    { t: 0.45, p: gp(ts.x + 6, ts.z - 14) },       // Neil gets in (by the pyramid)
-    { t: 0.49, p: gp(ts.x + 16, ts.z - 66) },      // up the north ramp, out of the pit
-    { t: 0.52, p: gp(cave.x - 2, cave.z + 42) },   // closing on TP, honking
-    { t: 0.55, p: gp(cave.x - 14, cave.z + 30) },  // TP enters the cave — car stops just outside
-    { t: 0.64, p: gp(cave.x - 14, cave.z + 30) },  // waits
-    { t: 0.80, p: gp(126, -116) },                 // apron foot (NW, on the tunnel-aligned slope)
-    { t: 0.86, p: gp(204, -54) },                  // climbing the diagonal
-    { t: 0.90, p: gp(266, -4) },                   // upper slope
-    { t: 0.94, p: gp(345, 62) },                   // on the plateau — pulls TP & Ives out
-    { t: 1.10, p: gp(345, 62) },                   // stays here (Neil leaves on foot)
+  const carFrames = [   // baked from editor (2026-06-09) — position + rotation (ry) keys, incl. rotation-only
+    { t: 0.448, p: up(-127.709, 0.289, 4.987), ry: 1.695 },
+    { t: 0.495, p: up(-150.853, 0.289, -134.079), ry: 1.695 },
+    { t: 0.505, p: up(-149.07, 0.289, -162.446), ry: 1.004 },
+    { t: 0.51,  p: up(-125.042, 0.289, -184.599), ry: 1.518 },
+    { t: 0.547, p: up(-111.618, 0.289, -282.432) },
+    { t: 0.561, p: up(-110.162, 0.289, -299.983) },
+    { t: 0.64,  p: up(-110.162, 0.289, -299.983), ry: 1.518 },
+    { t: 0.665, ry: -0.49 },                       // rotation-only
+    { t: 0.673, ry: -0.453 },
+    { t: 0.681, p: up(-34.827, 9.158, -256.235) },
+    { t: 0.741, ry: -0.655 },
+    { t: 0.748, p: up(76.406, 0.821, -162.776) },
+    { t: 0.878, p: up(293.065, 56.564, 19.263) },
+    { t: 0.9,   ry: -0.655 },
+    { t: 0.907, p: up(342.187, 57.346, 60.536) },
+    { t: 0.915, ry: 2.638 },                       // 2nd-quadrant turn (quaternion-heading fix)
+    { t: 0.999, p: up(342.187, 57.346, 60.536) },
+    { t: 1.024, p: up(315.255, 57.346, 46.006) },
   ];
 
   // ---------- Neil — BWD: the inverted (blue) self riding with Blue Team ----------
